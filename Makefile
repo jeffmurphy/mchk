@@ -24,7 +24,7 @@ t3:	t3.o libmchk.a
 
 libmchk.a:	$(MCHKOBJ)
 	@echo "Building libmchk.a .."
-	ar rvf libmchk.a $(MCHKOBJ)
+	ar rv libmchk.a $(MCHKOBJ)
 
 malloc.o:	malloc.c
 	$(CC) $(CFLAGS) -S malloc.c -o malloc.s
