@@ -48,7 +48,7 @@ malloc(size_t size)
     ptr = realmalloc(size);
     if(! ptr) return ptr;
     
-    memset(ptr, 0, size);
+    realmemset(ptr, 0, size);
     
     if(addAlloc(size, ptr) != 0) {
       realfree(ptr);

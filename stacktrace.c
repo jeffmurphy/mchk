@@ -127,7 +127,7 @@ storeAddr(void *pc)
     return NULL;
   }
 
-  memset(s, 0, sizeof(stacktrace));
+  realmemset(s, 0, sizeof(stacktrace));
 
   s->pc = pc;
 
@@ -193,11 +193,13 @@ printStacktrace(stacktrace *s)
 # if defined(DEMANGLE_GNU_CXX)
     char   *dem = NULL; /* GNU CXX */
     dem = cplus_demangle(s->sname, DMGL_DEFAULT);
-# else
+# elif defined(DEMANGLE_SUN_CXX)
 #   define DMGL_BUFFER_SIZE 1024
     char    dem[DMGL_BUFFER_SIZE];  /* SUN CXX */
     if(cplus_demangle(s->sname, dem, DMGL_BUFFER_SIZE) != 0)
       strcpy(dem, s->sname);
+# else
+    char *dem = s->sname;
 # endif
 
     (void) printf("\t\t<%s>:", *(s->fname) ? s->fname : "unknown");
@@ -220,11 +222,13 @@ stacktrace *
 printAddr(void *pc)
 {
 #if defined(SOLARIS) || defined(LINUX)
-# ifdef DEMANGLE_GNU_CXX
+# if defined(DEMANGLE_GNU_CXX)
   char   *dem = NULL; /* GNU CXX */
-# else
+# elif defined(DEMANGLE_SUN_CXX)
 #  define DMGL_BUFFER_SIZE 1024
   char    dem[DMGL_BUFFER_SIZE];  /* SUN CXX */
+# else
+  const char   *dem = NULL;
 # endif
 
   Dl_info info;
@@ -246,6 +250,8 @@ printAddr(void *pc)
 #elif defined(DEMANGLE_SUN_CXX)
   if(cplus_demangle(info.dli_sname, dem, DMGL_BUFFER_SIZE) != 0)
     strcpy(dem, info.dli_sname);
+#else 
+  dem = info.dli_sname;
 #endif
 
   (void) printf("\t\t<%s>:", 

@@ -117,7 +117,7 @@ int
 addAlloc(size_t size, void *ptr)
 {
   memnode *n = realmalloc(sizeof(memnode));
-  memnode *p;
+  memnode *p = NULL;
 
   if(!n) return -1;
 

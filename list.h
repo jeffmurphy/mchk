@@ -46,7 +46,12 @@ EXTERN int          addFree(memnode *n);
 EXTERN int          addAlloc(size_t size, void *ptr);
 EXTERN memnode     *findMemnode(memnode *list, void *ptr);
 
-EXTERN memnode     *allocList;
-EXTERN memnode     *freeList;
+# ifdef __LIST_C__
+memnode     *allocList = NULL;
+memnode     *freeList  = NULL;
+# else
+extern memnode     *allocList;
+extern memnode     *freeList;
+# endif
 
 #endif /* __LIST_H__ */

@@ -10,12 +10,14 @@
      CC = gcc
      AS = /usr/bin/as
      OS = -DLINUX -rdynamic #-DSOLARIS
- CFLAGS = -g -I. -DDEMANGLE_GNU_CXX -DDO_STACK_TRACE \
+#-DDEMANGLE_GNU_CXX 
+ CFLAGS = -g -I. -DDO_STACK_TRACE \
 	  $(OS) -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
  CXXFLAGS = $(CFLAGS)
    LIBS = -L. -lmchk -lpthread -ldl -liberty
 
-MCHKSRC = chk.c malloc.c lock.c list.c stacktrace.c free.c loadlibc.c
+MCHKSRC = chk.c malloc.c lock.c list.c stacktrace.c free.c loadlibc.c \
+          memset.c
 MCHKOBJ = $(MCHKSRC:%.c=%.o)
 MCHKHDR = $(MCHKSRC:%.c=%.h)
 MCHKASM = $(MCHKSRC:%.c=%.s)
@@ -55,6 +57,11 @@ malloc.o:	malloc.c $(MCHKHDR)
 	$(CC) $(CFLAGS) -S malloc.c -o malloc.s
 	@$(AS) -Qy -o malloc.o malloc.s
 	@rm -f malloc.s
+
+memset.o:	memset.c $(MCHKHDR)
+	$(CC) $(CFLAGS) -S memset.c -o memset.s
+	@$(AS) -Qy -o memset.o memset.s
+	@rm -f memset.s
 
 lock.o:	lock.c $(MCHKHDR)
 	$(CC) $(CFLAGS) -S lock.c -o lock.s
