@@ -8,6 +8,23 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#ifdef SOLARIS
+# include <setjmp.h>
+# include <sys/reg.h>
+# include <sys/frame.h>
+# if defined(sparc) || defined(__sparc)
+#  define FLUSHWIN() asm("ta 3");
+#  define FRAME_PTR_INDEX 1
+#  define SKIP_FRAMES 0
+# endif
+
+# if defined(i386) || defined(__i386)
+#  define FLUSHWIN() 
+#  define FRAME_PTR_INDEX 3
+#  define SKIP_FRAMES 1
+# endif
+#endif
+
 #ifndef RTLD_NOW
 # define RTLD_NOW 1
 #endif
@@ -50,19 +67,19 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 # define UNLOCK
 #endif
 
-#define BADFREE    printf("warning: bad free. ptr=%X\n", ptr)
-#define REFREE     printf("warning: freeing free'd memory. ptr=%X\n", ptr);
-#define READFREE   printf("warning: read freed mem. ptr=%X\n", ptr);
-#define WRITEFREE  printf("warning: write freed mem. ptr=%X\n", ptr);
+#define BADFREE    printf("BADFREE   ptr=%X\n", ptr); walkStack()
+#define REFREE     printf("REFREE    ptr=%X\n", ptr); walkStack()
+#define READFREE   printf("READFREE  ptr=%X\n", ptr); walkStack()
+#define WRITEFREE  printf("WRITEFREE ptr=%X\n", ptr); walkStack()
 
-#define BADADDR    printf("warning: unknown address. ptr=%X\n", ptr);
-#define BADWRITE   printf("warning: bad write. ptr=%X\n", ptr);
-#define BADREAD    printf("warning: bad read. ptr=%X\n", ptr);
-#define UNDERWRITE printf("warning: underwrite. ptr=%X\n", ptr);
-#define OVERWRITE  printf("warning: overwrite. ptr=%X\n", ptr);
-#define UNDERREAD  printf("warning: underread. ptr=%X\n", ptr);
-#define OVERREAD   printf("warning: overread. ptr=%X\n", ptr);
-#define NULLADDR   printf("warning: deref NULL. ptr=%X\n", ptr);
+#define BADADDR    printf("BADADDR   ptr=%X\n", ptr); walkStack()
+#define BADWRITE   printf("BADWRITE  ptr=%X\n", ptr); walkStack()
+#define BADREAD    printf("BADREAD   ptr=%X\n", ptr); walkStack()
+#define UNDERWRITE printf("UNDERWRITE ptr=%X\n", ptr); walkStack()
+#define OVERWRITE  printf("OVERWRITE ptr=%X\n", ptr); walkStack()
+#define UNDERREAD  printf("UNDERREAD ptr=%X\n", ptr); walkStack()
+#define OVERREAD   printf("OVERREAD  ptr=%X\n", ptr); walkStack()
+#define NULLADDR   printf("NULLADDR  ptr=%X\n", ptr); walkStack()
 
 void
 wchk(void *sp, void *ptr, size_t len)
@@ -440,4 +457,55 @@ loadLibC(char *libc)
   }
 
   return 0;
+}
+
+
+static int
+walkStack(void)
+{
+#ifdef SOLARIS
+  struct frame *sp;
+  jmp_buf env;
+  int i;
+  
+  FLUSHWIN();
+  (void) setjmp(env);
+  sp = (struct frame *) env[FRAME_PTR_INDEX];
+  
+  for(i=0;i<SKIP_FRAMES && sp;i++)
+    sp = (struct frame *)sp->fr_savfp;
+  
+  while(sp && sp->fr_savpc) {
+    printAddr((void*)(sp->fr_savpc));
+    sp = (struct frame *)sp->fr_savfp;
+  }
+  
+#endif
+
+  return(0);
+}
+
+static void 
+printAddr(void *pc)
+{
+#ifdef SOLARIS
+  Dl_info info;
+  
+  if(dladdr(pc, & info) == 0) {
+    (void) printf("\t<unknown>: 0x%x\n", (int)pc);
+    return;
+  }
+  
+  /*
+   * filter out any mention of rtld.  We're hiding the cost
+   * of the rtld_auditing here.
+   */
+  if (strstr(info.dli_fname, "ld.so.1"))
+    return;
+  
+  (void) printf("\t%s:%s+0x%x\n", 
+		info.dli_fname,
+		info.dli_sname,
+		(unsigned int)pc - (unsigned int)info.dli_saddr);
+#endif
 }
