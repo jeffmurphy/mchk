@@ -7,6 +7,7 @@
 #include <dlfcn.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 #ifdef SOLARIS
 # include <setjmp.h>
@@ -413,30 +414,42 @@ malloc(size_t size)
 {
   void *ptr = NULL;
 
+
   /*printf("malloc(%d)\n", size);*/
 
-  if(malloc_init == 0) {
+  switch(mallocState) {
+  case UNINITIALIZED:
     LOCK;
+    mallocState = INITIALIZING;
     if(loadLibC(LIBC)) {
       exit(-1);
     }
-    malloc_init = 1;
+    mallocState = INITIALIZED;
     UNLOCK;
+
+  case INITIALIZED:
+    if(size == 0) return (void *) NULL;
+    size += REDZONESIZE * 2; 
+    ptr = realmalloc(size);
+    if(! ptr) return ptr;
+    
+    memset(ptr, 0, size);
+    
+    if(addAlloc(size, ptr) != 0) {
+      realfree(ptr);
+      return NULL;
+    }
+    
+    return ptr + REDZONESIZE;
+    break;
+    
+  case INITIALIZING:
+    if(size == 0) return NULL;
+    return staticMalloc(size);
+    break;
   }
 
-  if(size == 0) return (void *) NULL;
-  size += REDZONESIZE * 2; 
-  ptr = realmalloc(size);
-  if(! ptr) return ptr;
-
-  memset(ptr, 0, size);
-
-  if(addAlloc(size, ptr) != 0) {
-    realfree(ptr);
-    return NULL;
-  }
-
-  return ptr + REDZONESIZE;
+  return NULL;
 }
 
 void
@@ -618,4 +631,35 @@ printAddr(void *pc)
 		(unsigned int)pc - (unsigned int)info.dli_saddr);
 #endif
   return NULL;
+}
+
+static char    staticMem[STATICMEMSIZE];
+static size_t  staticOffset = 0;
+
+static void *
+staticMalloc(size_t size)
+{
+  size_t  ep = size + ALIGNBOUND - (size % ALIGNBOUND) - 1;
+  void   *p = NULL;
+
+  LOCK;
+  if(staticOffset + ep > STATICMEMSIZE) {
+    errno = ENOMEM;
+    UNLOCK;
+    return NULL;
+  }
+  staticOffset += ep;
+  p = (void *) (staticMem + staticOffset);
+  UNLOCK;
+
+  return p;
+}
+
+static void *
+staticFree(void *ptr)
+{
+  if((ptr >= (void *)staticMem) && 
+     (ptr <= (void *)staticMem + STATICMEMSIZE - 1)) {
+    /* we don't really "free" this stuff: it's static */
+  }
 }

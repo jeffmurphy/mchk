@@ -22,11 +22,13 @@ EXTERN void  free(void *ptr);
 EXTERN void  chkexit();
 
 #ifdef __MCHK_CORE__
-# define REDZONESIZE 8 /* # of bytes - try to preserve alignment */
+# define REDZONESIZE   8 /* # of bytes - try to preserve alignment */
+# define STATICMEMSIZE 10000
+# define ALIGNBOUND    8
 
   /* on linux, you might need to symlink this */
 
-# define LIBC "/lib/libc.so"
+# define LIBC          "/lib/libc.so"
 
 typedef struct _stacktrace stacktrace;
 struct _stacktrace {
@@ -54,10 +56,11 @@ struct _memnode {
   memnode       *next;
 };
 
-static void *(*realmalloc)(size_t) = 0;
-static void  (*realfree)(void *)   = 0;
-static char malloc_init            = 0;
-static int  semaphore              = 0;
+typedef enum { UNINITIALIZED, INITIALIZING, INITIALIZED } mchkState_t;
+
+static void       *(*realmalloc)(size_t) = 0;
+static void        (*realfree)(void *)   = 0;
+static mchkState_t  mallocState          = UNINITIALIZED;
 
 static memnode *allocList;
 static memnode *freeList;
@@ -76,6 +79,8 @@ static stacktrace *storeAddr(void *pc);
 static stacktrace *printAddr(void *pc);
 static void        freeStacktrace(stacktrace *p);
 static void        printStacktrace(stacktrace *s);
+
+static void    *staticMalloc(size_t size);
 
 #endif
 
