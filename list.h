@@ -30,6 +30,7 @@ struct _memnode {
 # define STATE_DEF    1
   char           state;
   long           freedTime;
+  long           lastAccessTime;
 
   stacktrace    *allocatedFrom;
   stacktrace    *freedFrom;
@@ -45,6 +46,7 @@ EXTERN void         freeMemnode(memnode *p);
 EXTERN int          addFree(memnode *n);
 EXTERN int          addAlloc(size_t size, void *ptr);
 EXTERN memnode     *findMemnode(memnode *list, void *ptr);
+EXTERN long         timeNow();
 
 # ifdef __LIST_C__
 memnode     *allocList = NULL;

@@ -8,6 +8,17 @@
 
 static long         freeAge = 60;
 
+long
+timeNow()
+{
+  struct timeval  tv;
+  if(gettimeofday(&tv, NULL)) {
+    perror("chk.o: gettimeofday");
+  } else {
+    return tv.tv_sec;
+  }
+  return -1;
+}
 
 int
 addFree(memnode *n)
@@ -15,11 +26,7 @@ addFree(memnode *n)
   memnode        *p;
   struct timeval  tv;
 
-  if(gettimeofday(&tv, NULL)) {
-    perror("chk.o: gettimeofday");
-  } else {
-    n->freedTime = tv.tv_sec;
-  }
+  n->freedTime = timeNow();
 
   /* add the new node to the freeList */
 
@@ -116,18 +123,19 @@ findMemnode(memnode *list, void *ptr)
 int
 addAlloc(size_t size, void *ptr)
 {
-  memnode *n = realmalloc(sizeof(memnode));
-  memnode *p = NULL;
+  memnode        *n = realmalloc(sizeof(memnode));
+  memnode        *p = NULL;
 
   if(!n) return -1;
 
-  n->size          = size;
-  n->ptr           = ptr;
-  n->state         = STATE_UNDEF;
-  n->next          = NULL;
-  n->prev          = NULL;
-  n->freedTime     = 0;
-  n->allocatedFrom = walkStack(storeAddr, TRUE);
+  n->lastAccessTime = timeNow();
+  n->size           = size;
+  n->ptr            = ptr;
+  n->state          = STATE_UNDEF;
+  n->next           = NULL;
+  n->prev           = NULL;
+  n->freedTime      = 0;
+  n->allocatedFrom  = walkStack(storeAddr, TRUE);
 
   LOCK;
   if(! allocList) {

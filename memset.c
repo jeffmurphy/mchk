@@ -8,7 +8,7 @@
 #include "chk.h"
 
 void *
-memset(void *ptr, int c, size_t len)
+_memset(void *ptr, int c, size_t len)
 {
   memnode *n;
 

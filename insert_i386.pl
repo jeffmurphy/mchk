@@ -17,6 +17,24 @@ open(O, "> $tfile") || die "open($tfile): $!";
 
 my ($mainflag, $globlmain) = (0, 0);
 
+# Options: R:W:E:S
+#   R = perform read checks
+#   W = perform write checks
+#   E = perform exit checks
+#   S = perform startup routine
+
+my (%control);
+if(defined($ENV{'MCHKOPTS'})) {
+  foreach (split(/:/, $ENV{'MCHKOPTS'})) {
+    $control{$_} = 1;
+  }
+} else {
+  %control = ('R' => 1,
+	      'W' => 1,
+	      'E' => 1,
+	      'S' => 1);
+}
+
 while(<I>) {
   chomp;
 
@@ -38,22 +56,26 @@ while(<I>) {
     if(($1 eq "main") && ($globlmain == 1)) {
       if($mainflag == 0) {
 	$mainflag = 1;
-	print "\tfound global \"main\" .. inserting chksetup() call.\n";
-	print O "$_\n";
-	print O "\n";
-	print O "\tpushl  %ebp\n";
-	print O "\tmovl   %esp, %ebp\n";
-	print O "\tsubl   \$0x14,%esp\n";
-	print O "\tpusha\n";
-	print O "\tmovl   0xc(%ebp),%eax\n";
-	print O "\tpushl  %eax\n"; # ac
-	print O "\tmovl   0x8(%ebp),%eax\n";
-	print O "\tpushl  %eax\n"; # av
-	print O "\tcall   chksetup\n";
-	print O "\taddl   \$8,%esp\n";
-	print O "\tpopa\n";
-	print O "\taddl   \$0x14,%esp\n";
-	print O "\tpopl   %ebp\n";
+	if(defined($control{'S'})) {
+	  print "\tfound global \"main\" .. inserting chksetup() call.\n";
+	  print O "$_\n";
+	  print O "\n";
+	  print O "\tpushl  %ebp\n";
+	  print O "\tmovl   %esp, %ebp\n";
+	  print O "\tsubl   \$0x14,%esp\n";
+	  print O "\tpusha\n";
+	  print O "\tmovl   0xc(%ebp),%eax\n";
+	  print O "\tpushl  %eax\n"; # ac
+	  print O "\tmovl   0x8(%ebp),%eax\n";
+	  print O "\tpushl  %eax\n"; # av
+	  print O "\tcall   chksetup\n";
+	  print O "\taddl   \$8,%esp\n";
+	  print O "\tpopa\n";
+	  print O "\taddl   \$0x14,%esp\n";
+	  print O "\tpopl   %ebp\n";
+	} else {
+	  print "\tfound global \"main\" but S option not specified.\n";
+	}
       } else {
 	die "\tWhoops. We've found two 'main:' labels?";
       }
@@ -77,18 +99,28 @@ while(<I>) {
   # the program to exit. therefor, call our cleanup routine first.
 
   elsif(($mainflag == 1) && (/^\s*ret\s*$/)) {
-    print "\tfound 'ret' in main() .. inserting chkexit() call.\n";
-    print O "\tpusha\n";
-    print O "\tcall chkexit\n";
-    print O "\tpopa\n";
+    print "\tfound 'ret' in main() .. ";
+    if(defined($control{'E'})) {
+      print "inserting chkexit() call.\n";
+      print O "\tpusha\n";
+      print O "\tcall chkexit\n";
+      print O "\tpopa\n";
+    } else {
+      print "but E option not specified.\n";
+    }
     print O "\t$_\n"; # ret
   }
 
   # if we are calling exit, lets cleanup first
 
   elsif(/^\s*call\s+exit\s*$/) {
-    print "\tfound 'call exit' .. inserting chkexit() call.\n";
-    print O "\tcall chkexit\n";
+    print "\tfound 'call exit' .. ";
+    if(defined($control{'E'})) {
+      print "inserting chkexit() call.\n";
+      print O "\tcall chkexit\n";
+    } else {
+      print "but E option not specified.\n";
+    }
     print O "$_\n"; # exit
   } 
 
@@ -124,16 +156,18 @@ while(<I>) {
 
     if($rhs =~ /\(.*\)/) {
       print "\twrite($t) $lhs to $rhs ($_)\n" if $debug;
-      print O "\n";
-      print O "\tpusha\n";           # save eax
-      print O "\tpushl \$".so($t)."\n";   # len
-      print O "\tleal $rhs,%eax\n";
-      print O "\tpushl %eax\n";           # ptr
-      print O "\tmovl %esp, %eax\n";      # record sp
-      print O "\tpushl %eax\n";           # push sp
-      print O "\tcall wchk\n";            # wchk()
-      print O "\tadd \$12, %esp\n";
-      print O "\tpopa\n";            # restore eax
+      if(defined($control{'W'})) {
+	print O "\n";
+	print O "\tpusha\n";           # save eax
+	print O "\tpushl \$".so($t)."\n";   # len
+	print O "\tleal $rhs,%eax\n";
+	print O "\tpushl %eax\n";           # ptr
+	print O "\tmovl %esp, %eax\n";      # record sp
+	print O "\tpushl %eax\n";           # push sp
+	print O "\tcall wchk\n";            # wchk()
+	print O "\tadd \$12, %esp\n";
+	print O "\tpopa\n";            # restore eax
+      }
     }
 
     # if the lhs is a memory reference, then this is 
@@ -141,16 +175,18 @@ while(<I>) {
 
     if($lhs =~ /\(.*\)/) {
       print "\tread($t) $lhs to $rhs ($_)\n" if $debug;
-      print O "\n";
-      print O "\tpusha\n";           # save eax
-      print O "\tpushl \$".so($t)."\n";   # len
-      print O "\tleal $lhs,%eax\n";
-      print O "\tpushl %eax\n";           # ptr
-      print O "\tmovl %esp, %eax\n";      # record sp
-      print O "\tpushl %eax\n";           # push sp
-      print O "\tcall rchk\n";            # rchk()
-      print O "\tadd \$12, %esp\n";
-      print O "\tpopa\n";
+      if(defined($control{'R'})) {
+	print O "\n";
+	print O "\tpusha\n";           # save eax
+	print O "\tpushl \$".so($t)."\n";   # len
+	print O "\tleal $lhs,%eax\n";
+	print O "\tpushl %eax\n";           # ptr
+	print O "\tmovl %esp, %eax\n";      # record sp
+	print O "\tpushl %eax\n";           # push sp
+	print O "\tcall rchk\n";            # rchk()
+	print O "\tadd \$12, %esp\n";
+	print O "\tpopa\n";
+      }
     }
 
     print O "$_\n\n";

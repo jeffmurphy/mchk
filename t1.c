@@ -45,6 +45,9 @@ main(int ac, char **av)
   printf("\tm[10] = %d \n", m[10]);
 
   /* should complain on exit of a memory leak of 10 bytes */
+
+  dumpAllocList();
+
   exit(0);
 }
 

@@ -24,6 +24,7 @@ EXTERN void  chkexit();
 EXTERN void  chksetup();
 EXTERN void  rchk(void *sp, void *ptr, size_t len);
 EXTERN void  wchk(void *sp, void *ptr, size_t len);
+EXTERN void  dumpAllocList();
 
 # ifdef DEBUG
 #  define D(X) printf X
@@ -37,17 +38,29 @@ EXTERN void  wchk(void *sp, void *ptr, size_t len);
 #  define TRUE !FALSE
 # endif
 
-# define BADFREE       printf("BADFREE    ptr=%X\n", ptr); PRINTSTACK
-# define REFREE(X)     printf("REFREE     ptr=%X\n", ptr); FULLTRACE(X)
-# define READFREE(X)   printf("READFREE   ptr=%X\n", ptr); FULLTRACE(X)
-# define WRITEFREE(X)  printf("WRITEFREE  ptr=%X\n", ptr); FULLTRACE(X)
-# define BADADDR       printf("BADADDR    ptr=%X\n", ptr); PRINTSTACK
-# define BADWRITE      printf("BADWRITE   ptr=%X\n", ptr); PRINTSTACK
-# define BADREAD(X)    printf("BADREAD    ptr=%X\n", ptr); FULLTRACE(X)
-# define UNDERWRITE(X) printf("UNDERWRITE ptr=%X\n", ptr); FULLTRACE(X)
-# define OVERWRITE(X)  printf("OVERWRITE  ptr=%X\n", ptr); FULLTRACE(X)
-# define UNDERREAD(X)  printf("UNDERREAD  ptr=%X\n", ptr); FULLTRACE(X)
-# define OVERREAD(X)   printf("OVERREAD   ptr=%X\n", ptr); FULLTRACE(X)
-# define NULLADDR      printf("NULLADDR   ptr=%X\n", ptr); PRINTSTACK
+# define BADFREE       printf("BADFREE    ptr=%X detected by %s\n", \
+                              ptr, __FUNCTION__); PRINTSTACK
+# define REFREE(X)     printf("REFREE     ptr=%X detected by %s\n", \
+                              ptr, __FUNCTION__); FULLTRACE(X)
+# define READFREE(X)   printf("READFREE   ptr=%X detected by %s\n", \
+                              ptr, __FUNCTION__); FULLTRACE(X)
+# define WRITEFREE(X)  printf("WRITEFREE  ptr=%X detected by %s\n", \
+                              ptr, __FUNCTION__); FULLTRACE(X)
+# define BADADDR       printf("BADADDR    ptr=%X detected by %s\n", \
+                              ptr, __FUNCTION__); PRINTSTACK
+# define BADWRITE      printf("BADWRITE   ptr=%X detected by %s\n", \
+                              ptr, __FUNCTION__); PRINTSTACK
+# define BADREAD(X)    printf("BADREAD    ptr=%X detected by %s\n", \
+                              ptr, __FUNCTION__); FULLTRACE(X)
+# define UNDERWRITE(X) printf("UNDERWRITE ptr=%X detected by %s\n", \
+                              ptr, __FUNCTION__); FULLTRACE(X)
+# define OVERWRITE(X)  printf("OVERWRITE  ptr=%X detected by %s\n", \
+                              ptr, __FUNCTION__); FULLTRACE(X)
+# define UNDERREAD(X)  printf("UNDERREAD  ptr=%X detected by %s\n", \
+                              ptr, __FUNCTION__); FULLTRACE(X)
+# define OVERREAD(X)   printf("OVERREAD   ptr=%X detected by %s\n", \
+                              ptr, __FUNCTION__); FULLTRACE(X)
+# define NULLADDR      printf("NULLADDR   ptr=%X detected by %s\n", \
+                              ptr, __FUNCTION__); PRINTSTACK
 
 #endif /* __chk_h__ */

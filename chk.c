@@ -87,8 +87,9 @@ wchk(void *sp, void *ptr, size_t len)
     return;
   }
  
-  n->state = STATE_DEF;
-  
+  n->state          = STATE_DEF;
+  n->lastAccessTime = timeNow();
+
   /* if (addr is in the redzone of alloc'd memory) then
    *     warning: under/over-flow write
    * endif
@@ -157,6 +158,8 @@ rchk(void *sp, void *ptr, size_t len)
     return;
   }
   
+  n->lastAccessTime = timeNow();
+
   /* if (addr is in the redzone of alloc'd memory) then
    *     warning: under/over-flow read
    */
@@ -209,15 +212,25 @@ chkexit()
   }
 
   if(leaked_memory_report == TRUE) {
-    LOCK;
     printf("Leaked memory report:\n");
-    for(p = allocList ; p ; p = p->next) {
-      printf("\tptr = %X allocated from:\n", p->ptr);
-      printStacktrace(p->allocatedFrom);
-    }
-    UNLOCK;
+    dumpAllocList();
   }
 
+}
+
+void
+dumpAllocList()
+{
+  memnode     *p;
+
+  LOCK;
+  for(p = allocList ; p ; p = p->next) {
+    printf("\tptr = %X (%d bytes) allocated from:\n", 
+	   p->ptr, 
+	   p->size - REDZONESIZE*2);
+    printStacktrace(p->allocatedFrom);
+  }
+  UNLOCK;
 }
 
 
