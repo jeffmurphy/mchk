@@ -1,14 +1,20 @@
-CXX=g++
-CCC=$(CXX)
-CC=gcc
-#AS=as
-AS=/usr/bin/as
-OS = -DLINUX -rdynamic #-DSOLARIS
-CFLAGS= -g -I. -DDEMANGLE_GNU_CXX -DDO_STACK_TRACE \
-	$(OS) -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
-LIBS  = -L. -lmchk -lpthread -ldl -liberty
+# Build Notes
+#
+# FLAG			REQUIRES
+# -DLINUX		-rdynamic
+# -DTHREAD_SAFE		-D_REENTRANT -lpthread 
+# -DDEMANGE_GNU_CXX	-liberty
 
-MCHKSRC = chk.c
+    CXX = g++
+    CCC = $(CXX)
+     CC = gcc
+     AS = /usr/bin/as
+     OS = -DLINUX -rdynamic #-DSOLARIS
+ CFLAGS = -g -I. -DDEMANGLE_GNU_CXX -DDO_STACK_TRACE \
+	  $(OS) -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
+   LIBS = -L. -lmchk -lpthread -ldl -liberty
+
+MCHKSRC = chk.c malloc.c lock.c list.c stacktrace.c free.c
 MCHKOBJ = $(MCHKSRC:%.c=%.o)
 MCHKASM = $(MCHKSRC:%.c=%.s)
 
@@ -33,10 +39,30 @@ libmchk.a:	$(MCHKOBJ)
 	@echo "Building libmchk.a .."
 	ar rv libmchk.a $(MCHKOBJ)
 
+stacktrace.o:	stacktrace.c
+	$(CC) $(CFLAGS) -S stacktrace.c -o stacktrace.s
+	@$(AS) -Qy -o stacktrace.o stacktrace.s
+	@rm -f stacktrace.s
+
 malloc.o:	malloc.c
 	$(CC) $(CFLAGS) -S malloc.c -o malloc.s
 	@$(AS) -Qy -o malloc.o malloc.s
 	@rm -f malloc.s
+
+lock.o:	lock.c
+	$(CC) $(CFLAGS) -S lock.c -o lock.s
+	@$(AS) -Qy -o lock.o lock.s
+	@rm -f lock.s
+
+free.o:	free.c
+	$(CC) $(CFLAGS) -S free.c -o free.s
+	@$(AS) -Qy -o free.o free.s
+	@rm -f free.s
+
+list.o:	list.c
+	$(CC) $(CFLAGS) -S list.c -o list.s
+	@$(AS) -Qy -o list.o list.s
+	@rm -f list.s
 
 chk.o:	chk.c chk.h
 	$(CC) $(CFLAGS) -S chk.c -o chk.s

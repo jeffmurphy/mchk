@@ -23,7 +23,6 @@ class filecontents {
   ~filecontents() { deleteContents(); };
   filecontents(FILE *fp);
 
-  friend ostream &operator<<(ostream &, filecontents &);
   friend ostream &operator<<(ostream &, filecontents *);
 };
 
@@ -62,12 +61,6 @@ filecontents::deleteContents()
     delete c->text;
     delete c;
   }
-}
-
-ostream &
-operator<<(ostream &stream, filecontents &that)
-{
-  stream << "not implemented" << endl;
 }
 
 ostream &
@@ -124,7 +117,7 @@ main ()
   cout << "enter a filename: ";
   cin >> f;
 
-  cout << "opening \"" << f << "\"" << endl;
+  cout << "\nopening \"" << f << "\"" << endl;
   FILE *fp = fopen(f, "r");
   if(!fp) {
     perror("fopen");
