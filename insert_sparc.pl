@@ -1,4 +1,4 @@
-#!/utiloss/perl/bin/perl -w
+#!/utilnsg_solaris/bin/perl -w
 #
 # insert.pl [.S file]
 #
@@ -38,20 +38,35 @@ open(O, "> $tfile") || die "open($tfile): $!";
 # the reg's on the stack. but i'm not certain how to do this 
 # cleanly.
 
-#       mov len,%l0
-#       mov [%fp-17], %l1
-#       mov %sp, %l2
-#       mov %l0, %o0
-#       mov %l1, %o1
-#       mov %l2, %o2
-#       call chk
-#       nop
+# AE 12/10/98 this appears to work somewhat well.
+
+# push %l0 - %l3 and %o0 - %o3 on the stack.
+
+#       add %sp, -32, %sp    \
+#       std %l0, [%sp + 0]  |
+#       std %l2, [%sp + 8]  |--- "push"
+#       std %o0, [%sp + 16] |
+#       std %o2, [%sp + 24] /
+#       add %sp, 32, %o0
+#	mov $len,%o2
+#	mov $rhs,%o1 <--- note, this doesn't work on sparc. need to use add
+#                         with %g0 to load the address.
+#	call chk
+#	nop
+#       ldd [%sp + 0], %l0  \
+#       ldd [%sp + 8], %l2  |
+#       ldd [%sp + 16], %o0 |--- "pop"
+#       ldd [%sp + 24], %o2 |
+#       add %sp, 32, %sp    /
+
+
+
 
 my ($mainflag) = 0;
 
 while(<I>) {
   chomp;
-
+#  print "$_\n";
   # if this is the main routine, flag it so we can stick
   # some exit code in at the end.
 
@@ -79,44 +94,89 @@ while(<I>) {
   # TODO: figure out the equivalent sparc instructions
   #
   # ex: write an abs value
-  #        movb $123,-1(%ebp)
-  #        movb $1,(%eax)
-  # ex: read a mem -> write a mem
-  #        movb -1(%ebp),(%eax)
+  #        stb %o0,[%fp-17]
   # ex: read a mem
-  #        movb -1(%ebp),%eax
+  #        ldb [%fp-17],%o0
     
-  elsif(/mov(.)\ (.+),(.+)/) {
+  elsif((/st(.*)\ (.+),(.+)/) || (/ld(.*)\ (.+),(.+)/)) {
     my($t, $lhs, $rhs) = ($1, $2, $3);
 
     # if the rhs is a memory reference, then this is
     # a write.
 
-    if($rhs =~ /\(.*\)/) {
+    my ($register, $sign, $offset) = "";
+    $offset = 0;
+    if($rhs =~ /\[.*\]/) {
+      if ($rhs =~ /\[(.+)([\-\+])(.+)\]/) {
+	($register,$sign,$offset) = ($rhs =~ /\[(.+)([\-\+])(.+)\]/);
+      } else {
+	($register) = ($rhs =~ /\[(.+)\]/);
+	$sign = "";
+	$offset = "";
+      }
       print "write($t) $lhs to $rhs ($_)\n" if $debug;
-      print O "\n\tpushl %eax\n";
-      print O "\tpushl \$1\n";
-      print O "\tpushl \$".so($t)."\n";
-      print O "\tleal $rhs,%eax\n";
-      print O "\tpushl %eax\n";
-      print O "\tcall chk\n";
-      print O "\tadd \$12, %esp\n";
-      print O "\tpopl %eax\n";
+      print O "\n\tadd %sp,-64,%sp\n";
+      print O "\tstd %l0,[%sp+0]\n";
+      print O "\tstd %l2,[%sp+8]\n";
+      print O "\tstd %o0,[%sp+16]\n";
+      print O "\tstd %o2,[%sp+24]\n";
+      print O "\tadd %sp,32,%o0\n";
+      print O "\tmov ".so($t).",%o2\n";
+      print O "\tmov %g0,%o1\n";
+      if ($offset ne "") {
+	if ($sign =~ /\-/) {
+	  print O "\tadd $register,-$offset,%o1\n";
+	} else {
+	  print O "\tadd $register,$offset,%o1\n";
+	}
+      } else {
+	print O "\tmov $register,%o1\n";
+      }
+      print O "\tcall wchk\n";
+      print O "\tnop\n";
+      print O "\tldd [%sp+0],%l0\n";
+      print O "\tldd [%sp+8],%l2\n";
+      print O "\tldd [%sp+16],%o0\n";
+      print O "\tldd [%sp+24],%o2\n";
+      print O "\tadd %sp,64,%sp\n";
     }
 
     # if the lhs is a memory reference, then this is 
     # a read
 
-    if($lhs =~ /\(.*\)/) {
+    if($lhs =~ /\[.*\]/) {
+      if ($lhs =~ /\[(.+)([\-\+])(.+)\]/) {
+	($register,$sign,$offset) = ($lhs =~ /\[(.+)([\-\+])(.+)\]/);
+      } else {
+	($register) = ($lhs =~ /\[(.+)\]/);
+	$sign = "";
+	$offset = "";
+      }
       print "read($t) $lhs to $rhs ($_)\n" if $debug;
-      print O "\n\tpushl %eax\n";
-      print O "\tpushl \$2\n";
-      print O "\tpushl \$".so($t)."\n";
-      print O "\tleal $lhs,%eax\n";
-      print O "\tpushl %eax\n";
-      print O "\tcall chk\n";
-      print O "\tadd \$12, %esp\n";
-      print O "\tpopl %eax\n";
+      print O "\n\tadd %sp,-64,%sp\n";
+      print O "\tstd %l0,[%sp+0]\n";
+      print O "\tstd %l2,[%sp+8]\n";
+      print O "\tstd %o0,[%sp+16]\n";
+      print O "\tstd %o2,[%sp+24]\n";
+      print O "\tadd %sp,32,%o0\n";
+      print O "\tmov ".so($t).",%o2\n";
+      print O "\tmov %g0,%o1\n";
+      if ($offset ne "") {
+	if ($sign =~ /\-/) {
+	  print O "\tadd $register,-$offset,%o1\n";
+	} else {
+	  print O "\tadd $register,$offset,%o1\n";
+	}
+      } else {
+	print O "\tmov $register,%o1\n";
+      }
+      print O "\tcall rchk\n";
+      print O "\tnop\n";
+      print O "\tldd [%sp+0],%l0\n";
+      print O "\tldd [%sp+8],%l2\n";
+      print O "\tldd [%sp+16],%o0\n";
+      print O "\tldd [%sp+24],%o2\n";
+      print O "\tadd %sp,64,%sp\n";
     }
 
     print O "$_\n\n";
@@ -139,9 +199,15 @@ exit 0;
 
 sub so($) {
   my ($t) = shift;
+  return 4 if($t eq "");
+  return 8 if($t eq "dd");
+  return 1 if($t eq "sb");
+  return 1 if($t eq "ub");
+  return 2 if($t eq "sh");
+  return 2 if($t eq "uh");
+  return 8 if($t eq "d");
+  return 4 if($t eq "h");
   return 1 if($t eq "b");
-  return 2 if($t eq "w");
-  return 4 if($t eq "l");
 
   die "unknown type ($t) can't figure out 'sizeof'";
 }
