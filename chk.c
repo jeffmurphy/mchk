@@ -561,7 +561,7 @@ walkStack(stacktrace *(*fn)(void *pc), int storeit)
   for(i = 0 ; i < SKIP_FRAMES && sp ; i++)
     sp = (struct frame *)sp->fr_savfp;
   
-  while(sp && sp->fr_savpc && (sp->fr_savpc <0xef000000)) {
+  while(sp && sp->fr_savpc) {
     stacktrace *s = (*fn)((void *)(sp->fr_savpc));
     if((storeit == TRUE) && s) {
       D(("pc:%x fbase:%x saddr:%x\n",s->pc,s->fbase,s->saddr));
