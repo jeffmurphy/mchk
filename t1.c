@@ -40,6 +40,7 @@ main()
   a = m[10]; /* overread */
   printf("\tm[10] = %d \n", m[10]);
 
+  /* should complain on exit of a memory leak of 10 bytes */
   exit(0);
 }
 

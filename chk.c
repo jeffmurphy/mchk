@@ -431,6 +431,10 @@ myfree(void *ptr)
   free(ptr);
 }
 
+/* the following concept (dyn loading libc instead of re-writting
+ * malloc) was borrowed from ccmalloc.
+ */
+
 static int
 loadLibC(char *libc)
 {
@@ -459,6 +463,13 @@ loadLibC(char *libc)
   return 0;
 }
 
+/* the following code was adapted from a SUN example source file
+ *
+ * Copyright (c) 1996 by Sun Microsystems, Inc.
+ * All rights reserved.
+ *
+ * #pragma ident   "@(#)print_my_stack.c   1.3     97/04/28 SMI"
+ */
 
 static int
 walkStack(void)

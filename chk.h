@@ -54,6 +54,10 @@ static int      addAlloc(size_t size, void *ptr);
 static memnode *findMemnode(memnode *list, void *ptr);
 
 static int      loadLibC(char *libc);
+
+static int      walkStack(void);
+static void     printAddr(void *);
+
 #endif
 
 #ifdef  __cplusplus
