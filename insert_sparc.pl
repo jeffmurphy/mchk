@@ -73,7 +73,8 @@ while(<I>) {
   # if this is the main routine, flag it so we can stick
   # some exit code in at the end.
 
-  if(/^\.globl (.*)$/) {
+  if(/^\s*\.global (.*)\s*$/) {
+    print STDERR "gotcha:\n";
     if($1 eq "main") {
       $mainflag = 1;
     } else {
@@ -86,12 +87,13 @@ while(<I>) {
 
   if(($mainflag == 1) && (/^\s*ret\s*$/)) {
     print O "\tcall chkexit\n";
+    print O "\tnop\n";
   }
 
   # if we are calling exit, lets cleanup first
-  if(/^\s*call\s+exit\s*$/) {
+  if(/^\s*call exit.*$/) {
     print O "\tcall chkexit\n";
-    print O "$_\n";
+    print O "\tnop\n";
   } 
 
   # TODO: figure out the equivalent sparc instructions
