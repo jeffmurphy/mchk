@@ -2,6 +2,8 @@
 
 #define __STACKTRACE_C__
 #include "stacktrace.h"
+#include "malloc.h"
+#include "demangle.h"
 
 /* the following code was partially adapted from a SUN example source file
  *
@@ -125,6 +127,8 @@ storeAddr(void *pc)
     return NULL;
   }
 
+  memset(s, 0, sizeof(stacktrace));
+
   s->pc = pc;
 
   if(dladdr(pc, & info) == 0) {
@@ -140,6 +144,8 @@ storeAddr(void *pc)
     }
     strcpy(s->fname, "unknown");
     strcpy(s->sname, "unknown");
+    s->fname[7] = 0;
+    s->sname[7] = 0;
     return s;
   }
   
@@ -203,8 +209,9 @@ printStacktrace(stacktrace *s)
     } else {
       (void) printf("<%s>", *(s->sname) ? s->sname : "unknown");
     }
-    (void) printf(" +0x%x\n", 
-		  (unsigned int)s->pc - (unsigned int)s->saddr);
+    (void) printf(" +0x%x (0x%x)\n", 
+		  (unsigned int)s->pc - (unsigned int)s->saddr,
+		  (unsigned int)s->pc);
   }
 }
 
@@ -252,8 +259,9 @@ printAddr(void *pc)
     (void) printf("<%s>", info.dli_sname);
   }
 
-  (void) printf("+0x%x\n", 
-		(unsigned int)pc - (unsigned int)info.dli_saddr);
+  (void) printf("+0x%x (0x%x)\n", 
+		(unsigned int)pc - (unsigned int)info.dli_saddr,
+		(unsigned int)pc);
 #endif
   return NULL;
 }

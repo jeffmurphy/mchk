@@ -2,6 +2,9 @@
 
 #define __FREE_C__
 #include "free.h"
+#include "list.h"
+#include "malloc.h"
+#include "chk.h"
 
 void 
 staticFree(void *ptr)

@@ -6,8 +6,6 @@
 # include <stdio.h>
 # include <sys/types.h>
 # include <dlfcn.h>
-# include "malloc.h"
-# include "demangle.h"
 
 # undef EXTERN
 # ifdef __STACKTRACE_C__
@@ -16,30 +14,30 @@
 #  define EXTERN extern
 # endif
 
-#ifdef DO_STACK_TRACE
-# include <setjmp.h>
-#endif
+# ifdef DO_STACK_TRACE
+#  include <setjmp.h>
+# endif
 
 # ifndef FALSE
 #  define FALSE 0
 #  define TRUE !FALSE
 # endif
 
-#ifdef SOLARIS
-# include <sys/reg.h>
-# include <sys/frame.h>
-# if defined(sparc) || defined(__sparc)
-#  define FLUSHWIN() asm("ta 3");
-#  define FRAME_PTR_INDEX 1
-#  define SKIP_FRAMES 0
-# endif
+# ifdef SOLARIS
+#  include <sys/reg.h>
+#  include <sys/frame.h>
+#  if defined(sparc) || defined(__sparc)
+#   define FLUSHWIN() asm("ta 3");
+#   define FRAME_PTR_INDEX 1
+#   define SKIP_FRAMES 0
+#  endif
 
-# if defined(i386) || defined(__i386)
-#  define FLUSHWIN() 
-#  define FRAME_PTR_INDEX 3
-#  define SKIP_FRAMES 1
+#  if defined(i386) || defined(__i386)
+#   define FLUSHWIN() 
+#   define FRAME_PTR_INDEX 3
+#   define SKIP_FRAMES 1
+#  endif
 # endif
-#endif
 
 typedef struct _stacktrace stacktrace;
 struct _stacktrace {
@@ -58,15 +56,15 @@ EXTERN void         freeStacktrace(stacktrace *p);
 EXTERN void         freeStacktraceNode(stacktrace *p);
 EXTERN void         printStacktrace(stacktrace *s);
 
-#define PRINTSTACK                      \
+# define PRINTSTACK                     \
 {                                       \
   printf("\terror occurred at:\n");     \
   walkStack(printAddr, FALSE);          \
 }
 
-#define STORESTACK walkStack(storeAddr, TRUE)
+# define STORESTACK walkStack(storeAddr, TRUE)
 
-#define FULLTRACE(X)                    \
+# define FULLTRACE(X)                   \
 {                                       \
   printf("\terror occurred at:\n");     \
   walkStack(printAddr, FALSE);          \

@@ -6,9 +6,12 @@
 #include "chk.h"
 
 
+static char leaked_memory_report = FALSE;
+
 void
-chksetup(void)
+chksetup(int ac, char **av)
 {
+  int i;
   printf("This executable was compiled with:\n");
   printf("mchk version %2.2f %s\n%s\n", VERSION, ALPHABETA, COPYRIGHT);
 
@@ -29,6 +32,15 @@ chksetup(void)
 #endif
 
   printf("\n");
+
+  /* this is commented out until we figure out how to do this
+   * for sparc 
+   */
+#ifndef __sparc__
+  printf("\targ count = %d\n", ac);
+  for(i = 0 ; i < ac ; i++)
+    printf("\t   arg[%d] = \"%s\"\n", i, av[i]);
+#endif
 
   printf("\n");
 }
@@ -196,13 +208,15 @@ chkexit()
 	   lm);
   }
 
-  LOCK;
-  printf("Leaked memory report:\n");
-  for(p = allocList ; p ; p = p->next) {
-    printf("ptr = %X\n", p->ptr);
-    printStacktrace(p->allocatedFrom);
+  if(leaked_memory_report == TRUE) {
+    LOCK;
+    printf("Leaked memory report:\n");
+    for(p = allocList ; p ; p = p->next) {
+      printf("\tptr = %X allocated from:\n", p->ptr);
+      printStacktrace(p->allocatedFrom);
+    }
+    UNLOCK;
   }
-  UNLOCK;
 
 }
 

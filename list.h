@@ -7,8 +7,8 @@
 # include <sys/types.h>
 # include <sys/time.h>
 # include <unistd.h>
+
 # include "stacktrace.h"
-# include "lock.h"
 
 # undef EXTERN
 # ifndef __LIST_C__
@@ -27,7 +27,7 @@ struct _memnode {
   size_t   size;
   void    *ptr;
 # define STATE_UNDEF -1
-# define STATE_DEF   1
+# define STATE_DEF    1
   char           state;
   long           freedTime;
 

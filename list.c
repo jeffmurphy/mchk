@@ -2,6 +2,9 @@
 
 #define __LIST_C__
 #include "list.h"
+#include "malloc.h"
+#include "free.h"
+#include "lock.h"
 
 static long         freeAge = 60;
 

@@ -41,9 +41,19 @@ while(<I>) {
 	print "\tfound global \"main\" .. inserting chksetup() call.\n";
 	print O "$_\n";
 	print O "\n";
+	print O "\tpushl  %ebp\n";
+	print O "\tmovl   %esp, %ebp\n";
+	print O "\tsubl   \$0x14,%esp\n";
 	print O "\tpusha\n";
-	print O "\tcall chksetup\n";
-	print O "\tpopa\n\n";
+	print O "\tmovl   0xc(%ebp),%eax\n";
+	print O "\tpushl  %eax\n"; # ac
+	print O "\tmovl   0x8(%ebp),%eax\n";
+	print O "\tpushl  %eax\n"; # av
+	print O "\tcall   chksetup\n";
+	print O "\taddl   \$8,%esp\n";
+	print O "\tpopa\n";
+	print O "\taddl   \$0x14,%esp\n";
+	print O "\tpopl   %ebp\n";
       } else {
 	die "\tWhoops. We've found two 'main:' labels?";
       }

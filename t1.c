@@ -13,12 +13,14 @@ foo(void *p, unsigned int len, unsigned char t, int z, int y, int x, int w,
 #endif
 
 int
-main()
+main(int ac, char **av)
 {
   char a;
   int  b, b2;
   short c;
   char *m;
+
+  printf("ac=%d av=%X\n", ac, av);
 
   printf ("\ta (%x) = 123\n", &a);
   a = 123;

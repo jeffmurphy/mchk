@@ -15,7 +15,7 @@
  CXXFLAGS = $(CFLAGS)
    LIBS = -L. -lmchk -lpthread -ldl -liberty
 
-MCHKSRC = chk.c malloc.c lock.c list.c stacktrace.c free.c
+MCHKSRC = chk.c malloc.c lock.c list.c stacktrace.c free.c loadlibc.c
 MCHKOBJ = $(MCHKSRC:%.c=%.o)
 MCHKHDR = $(MCHKSRC:%.c=%.h)
 MCHKASM = $(MCHKSRC:%.c=%.s)
@@ -45,6 +45,11 @@ stacktrace.o:	stacktrace.c $(MCHKHDR)
 	$(CC) $(CFLAGS) -S stacktrace.c -o stacktrace.s
 	@$(AS) -Qy -o stacktrace.o stacktrace.s
 	@rm -f stacktrace.s
+
+loadlibc.o:	loadlibc.c $(MCHKHDR)
+	$(CC) $(CFLAGS) -S loadlibc.c -o loadlibc.s
+	@$(AS) -Qy -o loadlibc.o loadlibc.s
+	@rm -f loadlibc.s
 
 malloc.o:	malloc.c $(MCHKHDR)
 	$(CC) $(CFLAGS) -S malloc.c -o malloc.s

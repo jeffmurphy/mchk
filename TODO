@@ -3,3 +3,8 @@ o memset() won't cause ->state to be _DEF because we can't/don't
   catch these memwrite instructions. sol'n: add memset() to 
   our library. else you get false BADREAD errors.
 
+o wrap realloc() calloc() valloc() memalign() 
+
+o wrap memset() memcpy() memcmp() memmove() str*() so that
+  we record the fact that they have "touched" memory.
+

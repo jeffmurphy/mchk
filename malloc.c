@@ -24,38 +24,6 @@ staticMalloc(size_t size)
   return p;
 }
 
-/* the following concept (dyn loading libc instead of re-writting
- * malloc) was borrowed from ccmalloc.
- */
-
-static int
-loadLibC(char *libc)
-{
-  void *handle;
-
-  handle = dlopen(libc, RTLD_NOW);
-  if(!handle) {
-    perror("dlopen");
-    return -1;
-  }
-
-  realmalloc = (void*(*)(size_t)) dlsym(handle, MALLOC_SYM);
-  if(!realmalloc) {
-    perror("dlsym[malloc]");
-    dlclose(handle);
-    return -1;
-  }
-
-  realfree = (void(*)(void*)) dlsym(handle, FREE_SYM);
-  if(!realfree) {
-    perror("dlsym[free]");
-    dlclose(handle);
-    return -1;
-  }
-
-  return 0;
-}
-
 
 void *
 malloc(size_t size)
