@@ -67,19 +67,35 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 # define UNLOCK
 #endif
 
-#define BADFREE    printf("BADFREE   ptr=%X\n", ptr); walkStack()
-#define REFREE     printf("REFREE    ptr=%X\n", ptr); walkStack()
-#define READFREE   printf("READFREE  ptr=%X\n", ptr); walkStack()
-#define WRITEFREE  printf("WRITEFREE ptr=%X\n", ptr); walkStack()
+#ifndef FALSE
+# define FALSE 0
+# define TRUE !FALSE
+#endif
 
-#define BADADDR    printf("BADADDR   ptr=%X\n", ptr); walkStack()
-#define BADWRITE   printf("BADWRITE  ptr=%X\n", ptr); walkStack()
-#define BADREAD    printf("BADREAD   ptr=%X\n", ptr); walkStack()
-#define UNDERWRITE printf("UNDERWRITE ptr=%X\n", ptr); walkStack()
-#define OVERWRITE  printf("OVERWRITE ptr=%X\n", ptr); walkStack()
-#define UNDERREAD  printf("UNDERREAD ptr=%X\n", ptr); walkStack()
-#define OVERREAD   printf("OVERREAD  ptr=%X\n", ptr); walkStack()
-#define NULLADDR   printf("NULLADDR  ptr=%X\n", ptr); walkStack()
+#define PRINTSTACK walkStack(printAddr, FALSE)
+#define STORESTACK walkStack(storeAddr, TRUE)
+#define FULLTRACE(X) \
+{                                       \
+  printf("allocated from:\n");          \
+  printStacktrace(X->allocatedFrom);    \
+  if(X->freedFrom) {                    \
+    printf("freed from:\n");            \
+    printStacktrace(X->freedFrom);      \
+  }                                     \
+}
+
+#define BADFREE    printf("BADFREE   ptr=%X\n", ptr); PRINTSTACK
+#define REFREE     printf("REFREE    ptr=%X\n", ptr); PRINTSTACK
+#define READFREE   printf("READFREE  ptr=%X\n", ptr); PRINTSTACK
+#define WRITEFREE(X) printf("WRITEFREE ptr=%X\n", ptr); FULLTRACE(X)
+#define BADADDR    printf("BADADDR   ptr=%X\n", ptr); PRINTSTACK
+#define BADWRITE   printf("BADWRITE  ptr=%X\n", ptr); PRINTSTACK
+#define BADREAD    printf("BADREAD   ptr=%X\n", ptr); PRINTSTACK
+#define UNDERWRITE printf("UNDERWRITE ptr=%X\n", ptr);PRINTSTACK
+#define OVERWRITE  printf("OVERWRITE ptr=%X\n", ptr); PRINTSTACK
+#define UNDERREAD  printf("UNDERREAD ptr=%X\n", ptr); PRINTSTACK
+#define OVERREAD   printf("OVERREAD  ptr=%X\n", ptr); PRINTSTACK
+#define NULLADDR   printf("NULLADDR  ptr=%X\n", ptr); PRINTSTACK
 
 void
 wchk(void *sp, void *ptr, size_t len)
@@ -113,7 +129,7 @@ wchk(void *sp, void *ptr, size_t len)
      *     warning: writing free'd memory
      */
     if(n) {
-      WRITEFREE;
+      WRITEFREE(n);
     } else {
       /* BADADDR; */
       /* we'll assume that this is caused by looking up something on the
@@ -248,12 +264,13 @@ addAlloc(size_t size, void *ptr)
 
   if(!n) return -1;
 
-  n->size  = size;
-  n->ptr   = ptr;
-  n->state = STATE_UNDEF;
-  n->next  = NULL;
-  n->prev  = NULL;
-  n->freedTime = 0;
+  n->size          = size;
+  n->ptr           = ptr;
+  n->state         = STATE_UNDEF;
+  n->next          = NULL;
+  n->prev          = NULL;
+  n->freedTime     = 0;
+  n->allocatedFrom = walkStack(storeAddr, TRUE);
 
   LOCK;
   if(! allocList) {
@@ -289,6 +306,8 @@ addFree(memnode *n)
     p->next = n;
     n->prev = p;
   }
+
+  n->freedFrom = walkStack(storeAddr, TRUE);
 
   /* free any nodes that are too old */
 
@@ -348,8 +367,22 @@ static void
 freeMemnode(memnode *p)
 {
   if(p && p->ptr) {
+    if(p->freedFrom)     freeStacktrace(p->freedFrom);
+    if(p->allocatedFrom) freeStacktrace(p->allocatedFrom);
     realfree(p->ptr);
     realfree(p);
+  }
+}
+
+static void
+freeStacktrace(stacktrace *p)
+{
+  while(p) {
+    stacktrace *n = p->next;
+    if(p->fname) realfree(p->fname);
+    if(p->sname) realfree(p->sname);
+    realfree(p);
+    p = n;
   }
 }
 
@@ -407,7 +440,7 @@ malloc(size_t size)
 }
 
 void
-myfree(void *ptr)
+free(void *ptr)
 {
   memnode *p;
 
@@ -428,7 +461,7 @@ myfree(void *ptr)
     }
   }
   UNLOCK;
-  free(ptr);
+  realfree(ptr);
 }
 
 /* the following concept (dyn loading libc instead of re-writting
@@ -471,32 +504,97 @@ loadLibC(char *libc)
  * #pragma ident   "@(#)print_my_stack.c   1.3     97/04/28 SMI"
  */
 
-static int
-walkStack(void)
+static stacktrace *
+walkStack(stacktrace *(*fn)(void *pc), int storeit)
 {
 #ifdef SOLARIS
-  struct frame *sp;
-  jmp_buf env;
-  int i;
+  struct frame *sp = NULL;
+  jmp_buf       env;
+  int           i = 0;
+  stacktrace   *st = NULL, *sto = NULL;
   
   FLUSHWIN();
   (void) setjmp(env);
   sp = (struct frame *) env[FRAME_PTR_INDEX];
   
-  for(i=0;i<SKIP_FRAMES && sp;i++)
+  for(i = 0 ; i < SKIP_FRAMES && sp ; i++)
     sp = (struct frame *)sp->fr_savfp;
   
   while(sp && sp->fr_savpc) {
-    printAddr((void*)(sp->fr_savpc));
+    stacktrace *s = (*fn)((void *)(sp->fr_savpc));
+    if((storeit == TRUE) && s) {
+      if(!sto) {
+	sto = s;
+	st  = s;
+      } else {
+	st->next = s;
+	st       = s;
+      }
+    }
     sp = (struct frame *)sp->fr_savfp;
   }
   
+  return sto;
 #endif
 
-  return(0);
+  return NULL;
 }
 
-static void 
+static stacktrace *
+storeAddr(void *pc)
+{
+#ifdef SOLARIS
+  Dl_info     info;
+  int         l;
+  stacktrace *s = (stacktrace *) realmalloc(sizeof(stacktrace));
+
+  if(!s) {
+    perror("storeAddr[chk.o]: malloc");
+    return NULL;
+  }
+
+  s->pc = pc;
+
+  if(dladdr(pc, & info) == 0) {
+    return;
+  }
+  
+  if (strstr(info.dli_fname, "ld.so.1"))
+    return;
+
+  s->saddr = info.dli_saddr;
+
+  l = strlen(info.dli_fname);
+  s->fname = realmalloc(l + 1); 
+  (void) strncpy(s->fname, info.dli_fname, l);
+
+  l = strlen(info.dli_sname);
+  s->sname = realmalloc(l + 1); 
+  (void) strncpy(s->sname, info.dli_sname, l);
+
+  return s;
+#else
+  return NULL;
+#endif
+}
+
+static void
+printStacktrace(stacktrace *s) 
+{
+  if(!s) {
+    (void) printf("\tstack trace not available.\n");
+    return;
+  }
+
+  for( ; s ; s = s->next) {
+    (void) printf("\t%s:%s+0x%x\n", 
+		  s->fname ? s->fname : "unknown",
+		  s->sname ? s->sname : "unknown",
+		  (unsigned int)s->pc - (unsigned int)s->saddr);
+  }
+}
+
+static stacktrace *
 printAddr(void *pc)
 {
 #ifdef SOLARIS
@@ -519,4 +617,5 @@ printAddr(void *pc)
 		info.dli_sname,
 		(unsigned int)pc - (unsigned int)info.dli_saddr);
 #endif
+  return NULL;
 }

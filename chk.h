@@ -25,6 +25,16 @@ EXTERN void  chkexit();
 # define REDZONESIZE 8 /* # of bytes - try to preserve alignment */
 # define LIBC "/lib/libc.so"
 
+typedef struct _stacktrace stacktrace;
+struct _stacktrace {
+  void       *pc;
+  char       *fname; /* filename */
+  void       *fbase; /* base address of object */
+  char       *sname; /* symbol name nearest to address */
+  void       *saddr; /* actual address of symbol */
+  stacktrace *next;
+};
+
 typedef struct _memnode memnode;
 struct _memnode {
   size_t   size;
@@ -33,6 +43,9 @@ struct _memnode {
 # define STATE_DEF   1
   int            state;
   long           freedTime;
+
+  stacktrace    *allocatedFrom;
+  stacktrace    *freedFrom;
 
   memnode       *prev;
   memnode       *next;
@@ -55,8 +68,11 @@ static memnode *findMemnode(memnode *list, void *ptr);
 
 static int      loadLibC(char *libc);
 
-static int      walkStack(void);
-static void     printAddr(void *);
+static stacktrace *walkStack(stacktrace *(*fn)(void *pc), int storeit);
+static stacktrace *storeAddr(void *pc);
+static stacktrace *printAddr(void *pc);
+static void        freeStacktrace(stacktrace *p);
+static void        printStacktrace(stacktrace *s);
 
 #endif
 
