@@ -82,6 +82,10 @@ static void        printStacktrace(stacktrace *s);
 
 static void    *staticMalloc(size_t size);
 
+static char    staticMem[STATICMEMSIZE];
+static size_t  staticOffset = 0;
+
+
 #endif
 
 #ifdef  __cplusplus

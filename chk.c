@@ -45,23 +45,33 @@
 #ifdef THREAD_SAFE
 # include <pthread.h>
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-# define LOCK                                           \
-{                                                       \
-  int __ptmlret = pthread_mutex_lock(&lock);            \
-  if(__ptmlret) {                                       \
-     printf("chk.o: pthread_mutex_lock returned %d\n",  \
-            __ptmlret);                                 \
-     exit(-1);                                          \
-  }                                                     \
+static pthread_t       heldBy = 0;
+# define LOCK                                              \
+{                                                          \
+  if(heldBy != pthread_self()) {                           \
+     int __ptmlret = pthread_mutex_lock(&lock);            \
+     if(__ptmlret) {                                       \
+        printf("chk.o: pthread_mutex_lock returned %d\n",  \
+               __ptmlret);                                 \
+        exit(-1);                                          \
+     }                                                     \
+     heldBy = pthread_self();                              \
+   }                                                       \
 }
-# define UNLOCK                                          \
-{                                                        \
-  int __ptmulret = pthread_mutex_unlock(&lock);          \
-  if(__ptmulret) {                                       \
-     printf("chk.o: pthread_mutex_unlock returned %d\n", \
-            __ptmulret);                                 \
-     exit(-1);                                           \
-  }                                                      \
+# define UNLOCK                                             \
+{                                                           \
+  if(heldBy == pthread_self()) {                            \
+     int __ptmulret = pthread_mutex_unlock(&lock);          \
+     if(__ptmulret) {                                       \
+        printf("chk.o: pthread_mutex_unlock returned %d\n", \
+               __ptmulret);                                 \
+        exit(-1);                                           \
+     }                                                      \
+     heldBy = 0;                                            \
+  } else {                                                  \
+     printf("chk.o: mutex_unlock: thread %u doesn't hold the lock.\n", \
+            pthread_self());                                \
+  }                                                         \
 }
 #else
 # define LOCK
@@ -260,6 +270,11 @@ chkexit()
 	   c, 
 	   (c > 1)?'s':0, 
 	   lm);
+  }
+
+  if(staticOffset) {
+    printf("%u bytes of staticMemory used while initializing.\n",
+	   staticOffset);
   }
 }
 
@@ -526,12 +541,14 @@ loadLibC(char *libc)
 static stacktrace *
 walkStack(stacktrace *(*fn)(void *pc), int storeit)
 {
-#ifdef SOLARIS
+#if defined(SOLARIS) && defined(DO_STACK_TRACE)
   struct frame *sp = NULL;
   jmp_buf       env;
   int           i = 0;
   stacktrace   *st = NULL, *sto = NULL;
-  
+
+  LOCK;
+
   FLUSHWIN();
   (void) setjmp(env);
   sp = (struct frame *) env[FRAME_PTR_INDEX];
@@ -552,7 +569,9 @@ walkStack(stacktrace *(*fn)(void *pc), int storeit)
     }
     sp = (struct frame *)sp->fr_savfp;
   }
-  
+
+  UNLOCK;
+
   return sto;
 #endif
 
@@ -562,7 +581,7 @@ walkStack(stacktrace *(*fn)(void *pc), int storeit)
 static stacktrace *
 storeAddr(void *pc)
 {
-#ifdef SOLARIS
+#if defined(SOLARIS) && defined(DO_STACK_TRACE)
   Dl_info     info;
   int         l;
   stacktrace *s = (stacktrace *) realmalloc(sizeof(stacktrace));
@@ -638,9 +657,6 @@ printAddr(void *pc)
 #endif
   return NULL;
 }
-
-static char    staticMem[STATICMEMSIZE];
-static size_t  staticOffset = 0;
 
 static void *
 staticMalloc(size_t size)

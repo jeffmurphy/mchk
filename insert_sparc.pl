@@ -1,3 +1,4 @@
+#!/utiloss/perl/bin/perl -w
 #!/utilnsg_solaris/bin/perl -w
 #
 # insert.pl [.S file]
