@@ -18,7 +18,7 @@ t2:	t2.o chk.o
 
 libmchk.a:	$(MCHKOBJ)
 	@echo "Building libmchk.a .."
-	ar rvf libmchk.a $(MCHKOBJ)
+	ar rv libmchk.a $(MCHKOBJ)
 
 malloc.o:	malloc.c
 	$(CC) $(CFLAGS) -S malloc.c -o malloc.s
