@@ -28,7 +28,11 @@ EXTERN void  chkexit();
 
   /* on linux, you might need to symlink this */
 
-# define LIBC          "/lib/libc.so"
+# ifdef SOLARIS
+#  define LIBC          "/lib/libc.so"
+# else
+#  define LIBC          "/lib/libc.so.6"
+# endif
 
 typedef struct _stacktrace stacktrace;
 struct _stacktrace {

@@ -1,4 +1,4 @@
-#!/utiloss/perl/bin/perl -w
+#!/usr/local/bin/perl -w
 #
 # "as" wrapper
 #
@@ -8,21 +8,26 @@ use strict;
 
 my($infile) = $ARGV[$#ARGV];
 my($pd);
-if($0 =~ /(.*)\/[^\/]+^/) {
+
+if($0 =~ /(.*)\/[^\/]+$/) {
   $pd = $1;
 } else {
   $pd = ".";
 }
 
-print '"as" wrapper v1.0'."\n";
+my ($p);
+chomp($p = `uname -p`);
+
+my ($cmd) = "$pd/insert_${p}.pl";
+
+print '"as" wrapper v1.0'." using $cmd\n";
+
+die "no file given\n" if(!defined($infile));
 
 #print "\n\n./insert.pl $infile\n";
 #print "/usr/bin/as @ARGV\n\n";
 
 if(defined($ENV{"MCHK"}) && ($ENV{"MCHK"} eq "yes")) {
-  my ($p);
-  chomp($p = `uname -p`);
-  my ($cmd) = "$pd/insert_${p}.pl";
   system ("$cmd $infile");
 }
 

@@ -8,9 +8,11 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <errno.h>
+#ifdef DO_STACK_TRACE
+# include <setjmp.h>
+#endif
 
 #ifdef SOLARIS
-# include <setjmp.h>
 # include <sys/reg.h>
 # include <sys/frame.h>
 # if defined(sparc) || defined(__sparc)
@@ -71,6 +73,7 @@ static pthread_t       heldBy = 0;
   } else {                                                  \
      printf("chk.o: mutex_unlock: thread %u doesn't hold the lock.\n", \
             pthread_self());                                \
+     return;                                                \
   }                                                         \
 }
 #else
@@ -442,9 +445,11 @@ malloc(size_t size)
   case UNINITIALIZED:
     LOCK;
     mallocState = INITIALIZING;
+    UNLOCK;
     if(loadLibC(LIBC)) {
       exit(-1);
     }
+    LOCK;
     mallocState = INITIALIZED;
     UNLOCK;
 
@@ -547,7 +552,7 @@ walkStack(stacktrace *(*fn)(void *pc), int storeit)
   int           i = 0;
   stacktrace   *st = NULL, *sto = NULL;
 
-  LOCK;
+  /*LOCK;*/
 
   FLUSHWIN();
   (void) setjmp(env);
@@ -559,7 +564,6 @@ walkStack(stacktrace *(*fn)(void *pc), int storeit)
   while(sp && sp->fr_savpc) {
     stacktrace *s = (*fn)((void *)(sp->fr_savpc));
     if((storeit == TRUE) && s) {
-      printf("st = %X  st->next = %X\n", st, st->next);
       if(!sto) {
 	sto = s;
 	st  = s;
@@ -571,7 +575,7 @@ walkStack(stacktrace *(*fn)(void *pc), int storeit)
     sp = (struct frame *)sp->fr_savfp;
   }
 
-  UNLOCK;
+  /*UNLOCK;*/
 
   return sto;
 #endif

@@ -75,7 +75,7 @@ while(<I>) {
     if($rhs =~ /\(.*\)/) {
       print "write($t) $lhs to $rhs ($_)\n" if $debug;
       print O "\n";
-      print O "\tpushl %eax\n";           # save eax
+      print O "\tpusha\n";           # save eax
       print O "\tpushl \$".so($t)."\n";   # len
       print O "\tleal $rhs,%eax\n";
       print O "\tpushl %eax\n";           # ptr
@@ -83,7 +83,7 @@ while(<I>) {
       print O "\tpushl %eax\n";           # push sp
       print O "\tcall wchk\n";            # wchk()
       print O "\tadd \$12, %esp\n";
-      print O "\tpopl %eax\n";            # restore eax
+      print O "\tpopa\n";            # restore eax
     }
 
     # if the lhs is a memory reference, then this is 
@@ -92,7 +92,7 @@ while(<I>) {
     if($lhs =~ /\(.*\)/) {
       print "read($t) $lhs to $rhs ($_)\n" if $debug;
       print O "\n";
-      print O "\tpushl %eax\n";           # save eax
+      print O "\tpusha\n";           # save eax
       print O "\tpushl \$".so($t)."\n";   # len
       print O "\tleal $lhs,%eax\n";
       print O "\tpushl %eax\n";           # ptr
@@ -100,7 +100,7 @@ while(<I>) {
       print O "\tpushl %eax\n";           # push sp
       print O "\tcall rchk\n";            # rchk()
       print O "\tadd \$12, %esp\n";
-      print O "\tpopl %eax\n";
+      print O "\tpopa\n";
     }
 
     print O "$_\n\n";
