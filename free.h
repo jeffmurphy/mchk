@@ -1,3 +1,5 @@
+/* Copyright (c) 1998, 1999 Nickel City Software */
+
 #ifndef __FREE_H__
 # define __FREE_H__
 

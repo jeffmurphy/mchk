@@ -1,3 +1,6 @@
+/* Copyright (c) 1998, 1999 Nickel City Software */
+
+#define __FREE_C__
 #include "free.h"
 
 void 

@@ -1,3 +1,5 @@
+/* Copyright (c) 1998, 1999 Nickel City Software */
+
 #define __MALLOC_C__
 #include "malloc.h"
 

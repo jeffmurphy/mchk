@@ -1,3 +1,5 @@
+/* Copyright (c) 1998, 1999 Nickel City Software */
+
 #define __STACKTRACE_C__
 #include "stacktrace.h"
 

@@ -1,3 +1,5 @@
+/* Copyright (c) 1998, 1999 Nickel City Software */
+
 #ifndef __VERSION_H__
 # define __VERSION_H__
 
