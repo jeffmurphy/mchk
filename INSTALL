@@ -1,0 +1,30 @@
+To install this package.
+
+Edit 		Change
+-------------------------------------------
+as		path to perl (first line)
+insert_*.pl	path to perl (first line)
+Makefile	path to as (the real as)
+
+
+On Solaris:
+
+% setenv COMPILER_PATH `pwd`
+% make
+% ./t1
+% ./t2
+
+On Linux:
+
+% set path = (`pwd` $path)
+% make
+% ./t1
+% ./t2
+
+
+t1 & t2 are two test programs.
+
+
+
+
+

@@ -1,0 +1,117 @@
+Copyright (c) 1998, 1999 Nickel City Software
+
+NAME
+
+mchk ("em check")
+
+DESCRIPTION
+
+This is a memory checking tool inspired by gmalloc, ccmalloc, Checker and
+Purify. It attempts to combine some of the features of each of those into
+a simpler, free package.
+
+HOW IT WORKS
+
+This package includes 4 pieces. 
+
+as	this is an "as" wrapper. under linux, it seems that it is
+	sufficient to place it in your path so that it is found *before*
+	the real "as" (/usr/bin/as). under solaris, it appears that
+	gcc is too smart and you need to 
+
+	setenv COMPILER_PATH /path/to/mchk/as
+
+	before compiling. This will encourage gcc to use our wrapper
+	instead of the real "as".
+
+	The wrapper picks off the last command line parameter (assumed
+	to generally be the assembly source code file) and feeds it into
+	insert_ARCH.pl. "as" will try to figure out what "ARCH" to 
+	substitute by calling the "uname -p" command.
+
+insert_ARCH.pl
+	this script has two flavors. ARCH can be "i386" or "sparc". 
+	it is a perl script that will read an assembly source file and
+	attempt to stealthily insert code to check memory references
+	before the references are actually performed.
+
+	in addition, if we detect a main() routine, we'll insert a call
+	to chkexit() immediately before main() exits so that we can 
+	dump things like a leaked-memory report.
+
+libmchk.a
+	this library contains a variety of routines for checking memory
+	references. you can pretty much ignore most of these routines.
+	in addition, it contains a malloc() and free() replacement that
+	were inspired by ccmalloc's novel approach.
+
+	these routines are thread safe (if you compile the library with
+	-DTHREAD_SAFE -D_REENTRANT).
+
+chk.h	you should include this in source files that are going to call 
+	malloc(), free(), etc. i don't think this is a must, as the 
+	linker should take care of things for us for the most part.
+
+Limitations
+
+Currently, we don't check stack (automatic) variables. It is possible to
+do some rudimentary checking of these (you can't do upper and lower bounds
+checking on them). However, I wasn't able to devise a simple way of
+determining if the address were checking is on the stack or not. I tried
+saying 
+	if addr >= current_stack_pointer then
+		addr is on stack
+	endif
+but this didn't work. I thought that the stack is at the top of the
+address space, but apparently I'm wrong.
+
+In any event, we can determine the bottom of the stack when we start our
+checks, but I'm not certain how to determine the top of the stack. If we
+can figure out the top, we can do
+
+	if (bottom <= addr <= top) then
+		addr is on stack
+	endif
+
+For now, if we don't have a record of the address being malloc'd, we
+silently abort the checking phase. This means that we could, potentially,
+miss some errors if there is a gross over-run or under-run. We allocate 8
+extra bytes at the start and end of each malloc'd block. So long as you
+only moderately over/under run your bounds (within 8 bytes) we'll catch
+it. 
+
+Checks
+
+The following checks will be performed on memory reads, writes, allocations 
+and de-allocations:
+
+BADFREE		This means you've free'd a segment of memory that was
+		not previously malloc'd.
+REFREE		This means you've called free() twice on the same pointer.
+READFREE	You've read from memory that was previously free'd.
+WRITEFREE	You've written to memory that was previously free'd.
+BADADDR		This means we don't know what the address refers too.
+		Currently, this isn't implemented due to the stack checking
+		confusion/issue.
+BADWRITE	Nothing
+BADREAD		You've attempted to read from uninitialized memory.
+UNDERWRITE	You've written to the lower redzone.
+OVERWRITE	You've written to the upper redzone.
+UNDERREAD	You've read from the lower redzone.
+OVERREAD	You've read from the upper redzone.
+NULLADDR	You're about to dereference a null pointer.
+
+The READFREE/WRITEFREE check is accomplished by not immediately free()ing
+memory. Instead, we put it on a freeList and let it age for freeAge seconds 
+(default: 60). If you attempt to fiddle with the memory in that amount of
+time, we'll flag you. Otherwise, we'll free it when it gets too old. After
+it is free'd, we can no longer perform these free checks.
+
+Well, that's not entirely true. But that's the simplest implementation. 
+
+
+I've only spent about 5 hours writing this (so far), so YMMV.
+
+Jeff Murphy
+jcmurphy@poboxes.com
+9 Dec 1998
