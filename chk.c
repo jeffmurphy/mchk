@@ -531,24 +531,6 @@ loadLibC(char *libc)
 }
 
 
-static void
-trylookup(void *pc)
-{
-  Dl_info     info;
-
-  if(dladdr(pc, & info) == 0) {
-    (void) printf("\t{unknown}:{unknown} [0x%X]\n", (int)pc);
-    return;
-  }
-  
-  (void) printf("\t<%s>:<%s>+0x%x [0x%X]\n", 
-		info.dli_fname,
-		info.dli_sname,
-		(unsigned int)pc - (unsigned int)info.dli_saddr,
-		(unsigned int)pc);
-
-}
-
 /* the following code was adapted from a SUN example source file
  *
  * Copyright (c) 1996 by Sun Microsystems, Inc.
