@@ -23,6 +23,9 @@ EXTERN void  chkexit();
 
 #ifdef __MCHK_CORE__
 # define REDZONESIZE 8 /* # of bytes - try to preserve alignment */
+
+  /* on linux, you might need to symlink this */
+
 # define LIBC "/lib/libc.so"
 
 typedef struct _stacktrace stacktrace;
