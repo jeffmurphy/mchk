@@ -63,6 +63,9 @@ open(O, "> $tfile") || die "open($tfile): $!";
 
 
 my ($mainflag) = 0;
+my ($gccs_stack, $gimmemorestack,
+    $stackaddr1, $stackaddr2,
+    $stackaddr3, $stackaddr4) = 0;
 
 while(<I>) {
   chomp;
@@ -97,6 +100,16 @@ while(<I>) {
   #        stb %o0,[%fp-17]
   # ex: read a mem
   #        ldb [%fp-17],%o0
+  
+  if (/\s*save %sp,([-+]?\d+),%sp\s*$/) {
+    $gccs_stack = $1;
+    $gimmemorestack = $gccs_stack - (4*8);
+    $stackaddr1 = abs($gccs_stack+64);
+    $stackaddr2 = abs($gccs_stack+56);
+    $stackaddr3 = abs($gccs_stack+48);
+    $stackaddr4 = abs($gccs_stack+40);
+    print O "\tsave %sp,$gimmemorestack,%sp\n";
+  }
     
   elsif((/st(.*)\ (.+),(.+)/) || (/ld(.*)\ (.+),(.+)/)) {
     my($t, $lhs, $rhs) = ($1, $2, $3);
@@ -104,7 +117,7 @@ while(<I>) {
     # if the rhs is a memory reference, then this is
     # a write.
 
-    my ($register, $sign, $offset) = "";
+    my ($register, $sign, $offset,$fudge) = "";
     $offset = 0;
     if($rhs =~ /\[.*\]/) {
       if ($rhs =~ /\[(.+)([\-\+])(.+)\]/) {
@@ -115,12 +128,11 @@ while(<I>) {
 	$offset = "";
       }
       print "write($t) $lhs to $rhs ($_)\n" if $debug;
-      print O "\n\tadd %sp,-64,%sp\n";
-      print O "\tstd %l0,[%sp+0]\n";
-      print O "\tstd %l2,[%sp+8]\n";
-      print O "\tstd %o0,[%sp+16]\n";
-      print O "\tstd %o2,[%sp+24]\n";
-      print O "\tadd %sp,32,%o0\n";
+      print O "\tstd %l0,[%fp-$stackaddr1]\n";
+      print O "\tstd %l2,[%fp-$stackaddr2]\n";
+      print O "\tstd %o0,[%fp-$stackaddr3]\n";
+      print O "\tstd %o2,[%fp-$stackaddr4]\n";
+      print O "\tmov %sp,%o0\n";
       print O "\tmov ".so($t).",%o2\n";
       print O "\tmov %g0,%o1\n";
       if ($offset ne "") {
@@ -130,15 +142,40 @@ while(<I>) {
 	  print O "\tadd $register,$offset,%o1\n";
 	}
       } else {
-	print O "\tmov $register,%o1\n";
+	if ($register =~ /%o0/) {
+	  $fudge = $stackaddr3;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%o1/) {
+	  $fudge = $stackaddr3 + 4;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%o2/) {
+	  $fudge = $stackaddr4;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%o3/) {
+	  $fudge = $stackaddr4 + 4;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%l0/) {
+	  $fudge = $stackaddr1;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%l1/) {
+	  $fudge = $stackaddr1 + 4;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%l2/) {
+	  $fudge = $stackaddr2;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%l3/) {
+	  $fudge = $stackaddr2 + 4;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} else {
+	  print O "\tmov $register,%o1\n";
+	}
       }
       print O "\tcall wchk\n";
       print O "\tnop\n";
-      print O "\tldd [%sp+0],%l0\n";
-      print O "\tldd [%sp+8],%l2\n";
-      print O "\tldd [%sp+16],%o0\n";
-      print O "\tldd [%sp+24],%o2\n";
-      print O "\tadd %sp,64,%sp\n";
+      print O "\tldd [%fp-$stackaddr1],%l0\n";
+      print O "\tldd [%fp-$stackaddr2],%l2\n";
+      print O "\tldd [%fp-$stackaddr3],%o0\n";
+      print O "\tldd [%fp-$stackaddr4],%o2\n";
     }
 
     # if the lhs is a memory reference, then this is 
@@ -153,12 +190,11 @@ while(<I>) {
 	$offset = "";
       }
       print "read($t) $lhs to $rhs ($_)\n" if $debug;
-      print O "\n\tadd %sp,-64,%sp\n";
-      print O "\tstd %l0,[%sp+0]\n";
-      print O "\tstd %l2,[%sp+8]\n";
-      print O "\tstd %o0,[%sp+16]\n";
-      print O "\tstd %o2,[%sp+24]\n";
-      print O "\tadd %sp,32,%o0\n";
+      print O "\tstd %l0,[%fp-$stackaddr1]\n";
+      print O "\tstd %l2,[%fp-$stackaddr2]\n";
+      print O "\tstd %o0,[%fp-$stackaddr3]\n";
+      print O "\tstd %o2,[%fp-$stackaddr4]\n";
+      print O "\tmov %sp,%o0\n";
       print O "\tmov ".so($t).",%o2\n";
       print O "\tmov %g0,%o1\n";
       if ($offset ne "") {
@@ -168,15 +204,41 @@ while(<I>) {
 	  print O "\tadd $register,$offset,%o1\n";
 	}
       } else {
-	print O "\tmov $register,%o1\n";
+	if ($register =~ /%o0/) {
+	  $fudge = $stackaddr3;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%o1/) {
+	  $fudge = $stackaddr3 + 4;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%o2/) {
+	  $fudge = $stackaddr4;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%o3/) {
+	  $fudge = $stackaddr4 + 4;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%l0/) {
+	  $fudge = $stackaddr1;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%l1/) {
+	  $fudge = $stackaddr1 + 4;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%l2/) {
+	  $fudge = $stackaddr2;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} elsif ($register =~ /%l3/) {
+	  $fudge = $stackaddr2 + 4;
+	  print O "\tld [%fp-$fudge],%o1\n";
+	} else {
+	  print O "\tmov $register,%o1\n";
+	}
       }
       print O "\tcall rchk\n";
       print O "\tnop\n";
-      print O "\tldd [%sp+0],%l0\n";
-      print O "\tldd [%sp+8],%l2\n";
-      print O "\tldd [%sp+16],%o0\n";
-      print O "\tldd [%sp+24],%o2\n";
-      print O "\tadd %sp,64,%sp\n";
+      print O "\tldd [%fp-$stackaddr1],%l0\n";
+      print O "\tldd [%fp-$stackaddr2],%l2\n";
+      print O "\tldd [%fp-$stackaddr3],%o0\n";
+      print O "\tldd [%fp-$stackaddr4],%o2\n";
+
     }
 
     print O "$_\n\n";
