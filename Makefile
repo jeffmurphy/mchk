@@ -3,7 +3,7 @@ CCC=$(CXX)
 CC=gcc
 AS=as
 #AS=/usr/bin/as
-CFLAGS= -g -I. -DSOLARIS -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
+CFLAGS= -g -I. -DDO_STACK_TRACE -DSOLARIS -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
 #CFLAGS= -g -I.  -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
 LIBS  = -L. -lmchk -lpthread -ldl
 
@@ -14,19 +14,19 @@ MCHKASM = $(MCHKSRC:%.c=%.s)
 all:	libmchk.a t1 t2 t3 t4 t4 t5
 
 t1:	t1.o libmchk.a
-	$(CC) -o t1 t1.o $(LIBS)
+	$(CC) $(CFLAGS) -o t1 t1.o $(LIBS)
 
 t2:	t2.o libmchk.a
-	$(CC) -o t2 t2.o $(LIBS)
+	$(CC) $(CFLAGS) -o t2 t2.o $(LIBS)
 
 t3:	t3.o libmchk.a
-	$(CXX) -o t3 t3.o $(LIBS)
+	$(CXX) $(CFLAGS) -o t3 t3.o $(LIBS)
 
 t4:	t4.o libmchk.a
-	$(CC) -o t4 t4.o $(LIBS)
+	$(CC) $(CFLAGS) -o t4 t4.o $(LIBS)
 
 t5:	t5.o libmchk.a
-	$(CC) -o t5 t5.o $(LIBS)
+	$(CC) $(CFLAGS) -o t5 t5.o $(LIBS)
 
 libmchk.a:	$(MCHKOBJ)
 	@echo "Building libmchk.a .."

@@ -559,6 +559,7 @@ walkStack(stacktrace *(*fn)(void *pc), int storeit)
   while(sp && sp->fr_savpc) {
     stacktrace *s = (*fn)((void *)(sp->fr_savpc));
     if((storeit == TRUE) && s) {
+      printf("st = %X  st->next = %X\n", st, st->next);
       if(!sto) {
 	sto = s;
 	st  = s;
