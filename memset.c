@@ -74,7 +74,7 @@ realmemset(void *ptr, int c, size_t n)
   if(ptr) {
     char *eptr = ptr + n;
     char *b    = ptr;
-    while(b <= eptr) {
+    while(b < eptr) {
       *(b++) = c;
     }
   }

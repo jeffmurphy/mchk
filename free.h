@@ -12,6 +12,11 @@
 
 EXTERN void  staticFree(void *ptr);
 EXTERN void  free(void *ptr);
+
+# ifdef __FREE_C__
+void        (*realfree)(void *) = 0;
+# else
 EXTERN void (*realfree)(void *);
+# endif
 
 #endif /* __FREE_H__ */

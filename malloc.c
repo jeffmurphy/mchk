@@ -3,7 +3,7 @@
 #define __MALLOC_C__
 #include "malloc.h"
 
-static char         staticMem[STATICMEMSIZE];
+char         staticMem[STATICMEMSIZE];
 
 static void *
 staticMalloc(size_t size)

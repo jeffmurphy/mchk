@@ -35,12 +35,21 @@ EXTERN mchkState_t mallocState;
 # ifdef SOLARIS
 #  define LIBC          "/lib/libc.so"
 # else
-#  define LIBC          "/lib/libc.so.6"
+#  if 1
+#   define LIBC          "/lib/libc.so.6"
+#  else
+#   define LIBC          "/usr/src/redhat/SOURCES/glibc/glibc-2.0.7/libc.so"
+#  endif
 # endif
 
 EXTERN void       *malloc(size_t size);
-EXTERN void       *(*realmalloc)(size_t);
 EXTERN size_t      staticOffset;
+
+# ifdef __MALLOC_C__
+void              *(*realmalloc)(size_t) = 0;
+# else
+EXTERN void       *(*realmalloc)(size_t);
+# endif
 
 #endif /* __MALLOC_H__ */
 
