@@ -63,7 +63,9 @@ EXTERN void         printStacktrace(stacktrace *s);
   printf("\terror occurred at:\n");     \
   walkStack(printAddr, FALSE);          \
 }
+
 #define STORESTACK walkStack(storeAddr, TRUE)
+
 #define FULLTRACE(X)                    \
 {                                       \
   printf("\terror occurred at:\n");     \

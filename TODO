@@ -1,0 +1,5 @@
+
+o memset() won't cause ->state to be _DEF because we can't/don't
+  catch these memwrite instructions. sol'n: add memset() to 
+  our library. else you get false BADREAD errors.
+

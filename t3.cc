@@ -42,6 +42,9 @@ filecontents::filecontents(FILE *fp)
     n->next = NULL;
     if(l > 0) {
       n->text = new char[l+1];
+      for(char *x = n->text ; (x - (n->text) < l) ; x++) {
+	*x = 0;
+      }
       memset(n->text, 0, l+1);
       strncpy(n->text, word, l);
     }
@@ -57,9 +60,11 @@ filecontents::filecontents(FILE *fp)
 void
 filecontents::deleteContents()
 {
-  for(listitem *c = contents ; c ; c = c->next) {
-    delete c->text;
+  for(listitem *c = contents ; c ; ) {
+    listitem *cn = c->next;
+    delete[] c->text;
     delete c;
+    c = cn;
   }
 }
 
@@ -72,7 +77,7 @@ operator<<(ostream &stream, filecontents *that)
       int l   = strlen(n->text);
       bool nl = false;
 
-      switch(n->text[l-1]) {
+      switch(*(n->text + l - 1)) {
       case '{':
 	level++;
 	nl = true;
@@ -108,6 +113,7 @@ operator<<(ostream &stream, filecontents *that)
     } else
       stream << endl;
   }
+  return stream;
 }
 
 int
@@ -131,9 +137,7 @@ main ()
 
   delete fc;
 
-  cout << "fc deleted. sleeping for 30 secs." << endl;
-
-  sleep(30);
+  cout << "fc deleted.." << endl;
 
   return(0);
 }

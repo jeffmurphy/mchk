@@ -121,7 +121,7 @@ storeAddr(void *pc)
   stacktrace *s = (stacktrace *) realmalloc(sizeof(stacktrace));
 
   if(!s) {
-    perror("storeAddr[chk.o]: malloc");
+    perror("storeAddr: malloc");
     return NULL;
   }
 

@@ -74,7 +74,7 @@ wchk(void *sp, void *ptr, size_t len)
     UNLOCK;
     return;
   }
-  
+ 
   n->state = STATE_DEF;
   
   /* if (addr is in the redzone of alloc'd memory) then
@@ -184,6 +184,11 @@ chkexit()
   }
   UNLOCK;
 
+  if(staticOffset) {
+    printf("%u bytes of staticMemory used while initializing.\n",
+	   staticOffset);
+  }
+
   if(c) {
     printf("%u chunk%c of memory leaked (%u bytes)\n", 
 	   c, 
@@ -191,10 +196,14 @@ chkexit()
 	   lm);
   }
 
-  if(staticOffset) {
-    printf("%u bytes of staticMemory used while initializing.\n",
-	   staticOffset);
+  LOCK;
+  printf("Leaked memory report:\n");
+  for(p = allocList ; p ; p = p->next) {
+    printf("ptr = %X\n", p->ptr);
+    printStacktrace(p->allocatedFrom);
   }
+  UNLOCK;
+
 }
 
 

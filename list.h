@@ -26,9 +26,9 @@ typedef struct _memnode memnode;
 struct _memnode {
   size_t   size;
   void    *ptr;
-# define STATE_UNDEF 0
+# define STATE_UNDEF -1
 # define STATE_DEF   1
-  int            state;
+  char           state;
   long           freedTime;
 
   stacktrace    *allocatedFrom;

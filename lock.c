@@ -5,3 +5,4 @@
 
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_t       heldBy = 0;
+unsigned int    sema   = 0;
