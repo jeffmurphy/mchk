@@ -15,34 +15,74 @@ open(I, $file) || die "open($file): $!";
 my ($tfile) = ${file}."_tfile";
 open(O, "> $tfile") || die "open($tfile): $!";
 
-my ($mainflag) = 0;
+my ($mainflag, $globlmain) = (0, 0);
 
 while(<I>) {
   chomp;
 
-  # if this is the main routine, flag it so we can stick
-  # some exit code in at the end.
+  # if we find ".globl main" it means that this file has
+  # a global symbol called "main". good. this will most likely
+  # be the executables entry point.
 
-  if(/^\.globl (.*)$/) {
-    if($1 eq "main") {
-      $mainflag = 1;
+  if(/^\.globl main$/) {
+    print "\t\"main\" is global.\n";
+    $globlmain = 1;
+    print O "$_\n";
+  }
+
+  # if we've found a label, analyze it. if it is "main:" then we
+  # insert some startup code (provided main is global) else we just
+  # print out the label and keep going.
+
+  elsif(/^(\S+):$/) {
+    if(($1 eq "main") && ($globlmain == 1)) {
+      if($mainflag == 0) {
+	$mainflag = 1;
+	print "\tfound global \"main\" .. inserting chksetup() call.\n";
+	print O "$_\n";
+	print O "\n";
+	print O "\tpusha\n";
+	print O "\tcall chksetup\n";
+	print O "\tpopa\n\n";
+      } else {
+	die "\tWhoops. We've found two 'main:' labels?";
+      }
     } else {
-      $mainflag = 0;
+      print O "$_\n";
     }
   }
 
-  # if this is the end of the main routine, call our 
-  # cleanup routine
+  # if the line is ".size main,..." then this is probably the
+  # end of our "main" routine. we'll want to turn off our
+  # "mainflag" so we don't incorrectly call "chkexit" when we
+  # find "ret" instructions.
 
-  if(($mainflag == 1) && (/^\s*ret\s*$/)) {
+  elsif(/^\s*\.size\s+main,.*$/) {
+    $mainflag = 0;
+    print O "$_\n";
+  }
+
+  # if we've found a "ret" instruction and are confident that it
+  # is part of our "main" routine then we can expect it to cause
+  # the program to exit. therefor, call our cleanup routine first.
+
+  elsif(($mainflag == 1) && (/^\s*ret\s*$/)) {
+    print "\tfound 'ret' in main() .. inserting chkexit() call.\n";
+    print O "\tpusha\n";
     print O "\tcall chkexit\n";
+    print O "\tpopa\n";
+    print O "\t$_\n"; # ret
   }
 
   # if we are calling exit, lets cleanup first
-  if(/^\s*call\s+exit\s*$/) {
+
+  elsif(/^\s*call\s+exit\s*$/) {
+    print "\tfound 'call exit' .. inserting chkexit() call.\n";
     print O "\tcall chkexit\n";
-    print O "$_\n";
+    print O "$_\n"; # exit
   } 
+
+  # now check for memory access instructions. 
 
   # ex: write an abs value
   #        movb $123,-1(%ebp)
@@ -73,7 +113,7 @@ while(<I>) {
     # a write.
 
     if($rhs =~ /\(.*\)/) {
-      print "write($t) $lhs to $rhs ($_)\n" if $debug;
+      print "\twrite($t) $lhs to $rhs ($_)\n" if $debug;
       print O "\n";
       print O "\tpusha\n";           # save eax
       print O "\tpushl \$".so($t)."\n";   # len
@@ -90,7 +130,7 @@ while(<I>) {
     # a read
 
     if($lhs =~ /\(.*\)/) {
-      print "read($t) $lhs to $rhs ($_)\n" if $debug;
+      print "\tread($t) $lhs to $rhs ($_)\n" if $debug;
       print O "\n";
       print O "\tpusha\n";           # save eax
       print O "\tpushl \$".so($t)."\n";   # len
@@ -104,7 +144,11 @@ while(<I>) {
     }
 
     print O "$_\n\n";
-  } 
+  }
+
+  # finally: we don't know what this is, so just print it
+  # out and move on.
+
   else {
     print O "$_\n";
   }

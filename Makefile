@@ -4,8 +4,9 @@ CC=gcc
 #AS=as
 AS=/usr/bin/as
 OS = -DLINUX -rdynamic #-DSOLARIS
-CFLAGS= -g -I. -DDO_STACK_TRACE $(OS) -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
-LIBS  = -L. -lmchk -lpthread -ldl
+CFLAGS= -g -I. -DDEMANGLE_GNU_CXX -DDO_STACK_TRACE \
+	$(OS) -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
+LIBS  = -L. -lmchk -lpthread -ldl -liberty
 
 MCHKSRC = chk.c
 MCHKOBJ = $(MCHKSRC:%.c=%.o)

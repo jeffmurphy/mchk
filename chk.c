@@ -1,5 +1,9 @@
 /* Copyright (c) 1998, 1999 Nickel City Software */
 
+#define VERSION 1.0
+#define ALPHABETA "alpha"
+#define COPYRIGHT "Copyright (c) 1998, 1999 Nickel City Software"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -11,6 +15,7 @@
 #ifdef DO_STACK_TRACE
 # include <setjmp.h>
 #endif
+
 
 #ifdef SOLARIS
 # include <sys/reg.h>
@@ -48,7 +53,7 @@
 # include <pthread.h>
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t       heldBy = 0;
-# define LDBG(X) 
+# define LDBG(X) /* printf */
 # define LOCK                                              \
 {                                                          \
   LDBG(("LOCK[%u]: pending\n", pthread_self())); \
@@ -110,18 +115,45 @@ static pthread_t       heldBy = 0;
   }                                     \
 }
 
-#define BADFREE       printf("BADFREE   ptr=%X\n", ptr); PRINTSTACK
-#define REFREE(X)     printf("REFREE    ptr=%X\n", ptr); FULLTRACE(X)
-#define READFREE(X)   printf("READFREE  ptr=%X\n", ptr); FULLTRACE(X)
-#define WRITEFREE(X)  printf("WRITEFREE ptr=%X\n", ptr); FULLTRACE(X)
-#define BADADDR       printf("BADADDR   ptr=%X\n", ptr); PRINTSTACK
-#define BADWRITE      printf("BADWRITE  ptr=%X\n", ptr); PRINTSTACK
-#define BADREAD(X)    printf("BADREAD   ptr=%X\n", ptr); FULLTRACE(X)
+#define BADFREE       printf("BADFREE    ptr=%X\n", ptr); PRINTSTACK
+#define REFREE(X)     printf("REFREE     ptr=%X\n", ptr); FULLTRACE(X)
+#define READFREE(X)   printf("READFREE   ptr=%X\n", ptr); FULLTRACE(X)
+#define WRITEFREE(X)  printf("WRITEFREE  ptr=%X\n", ptr); FULLTRACE(X)
+#define BADADDR       printf("BADADDR    ptr=%X\n", ptr); PRINTSTACK
+#define BADWRITE      printf("BADWRITE   ptr=%X\n", ptr); PRINTSTACK
+#define BADREAD(X)    printf("BADREAD    ptr=%X\n", ptr); FULLTRACE(X)
 #define UNDERWRITE(X) printf("UNDERWRITE ptr=%X\n", ptr); FULLTRACE(X)
-#define OVERWRITE(X)  printf("OVERWRITE ptr=%X\n", ptr); FULLTRACE(X)
-#define UNDERREAD(X)  printf("UNDERREAD ptr=%X\n", ptr); FULLTRACE(X)
-#define OVERREAD(X)   printf("OVERREAD  ptr=%X\n", ptr); FULLTRACE(X)
-#define NULLADDR      printf("NULLADDR  ptr=%X\n", ptr); PRINTSTACK
+#define OVERWRITE(X)  printf("OVERWRITE  ptr=%X\n", ptr); FULLTRACE(X)
+#define UNDERREAD(X)  printf("UNDERREAD  ptr=%X\n", ptr); FULLTRACE(X)
+#define OVERREAD(X)   printf("OVERREAD   ptr=%X\n", ptr); FULLTRACE(X)
+#define NULLADDR      printf("NULLADDR   ptr=%X\n", ptr); PRINTSTACK
+
+void
+chksetup(void)
+{
+  printf("This executable was compiled with:\n");
+  printf("mchk version %2.2f %s\n%s\n", VERSION, ALPHABETA, COPYRIGHT);
+
+  printf("Options: ");
+
+#ifdef DO_STACK_TRACE
+  printf(" STACKTRACE(");
+# ifdef SOLARIS
+  printf("SOLARIS");
+# elif defined(LINUX)
+  printf("LINUX");
+# endif
+  printf(")");
+#endif
+
+#ifdef DEMANGLE_GNU_CXX
+  printf(" DEMANGLE(GNU_CXX)");
+#endif
+
+  printf("\n");
+
+  printf("\n");
+}
 
 void
 wchk(void *sp, void *ptr, size_t len)
@@ -712,9 +744,26 @@ printStacktrace(stacktrace *s)
   }
   
   for( ; s ; s = s->next) {
-    (void) printf("\t\t<%s>:<%s> +0x%x\n", 
-		  *(s->fname) ? s->fname : "unknown",
-		  *(s->sname) ? s->sname : "unknown",
+# if defined(DEMANGLE_GNU_CXX)
+    char   *dem = NULL; /* GNU CXX */
+    dem = cplus_demangle(s->sname, DMGL_DEFAULT);
+# else
+#   define DMGL_BUFFER_SIZE 1024
+    char    dem[DMGL_BUFFER_SIZE];  /* SUN CXX */
+    if(cplus_demangle(s->sname, dem, DMGL_BUFFER_SIZE) != 0)
+      strcpy(dem, s->sname);
+# endif
+
+    (void) printf("\t\t<%s>:", *(s->fname) ? s->fname : "unknown");
+    if(dem) {
+      (void) printf("<%s>", dem);
+# if defined(DEMANGLE_GNU_CXX)
+      free(dem);
+# endif
+    } else {
+      (void) printf("<%s>", *(s->sname) ? s->sname : "unknown");
+    }
+    (void) printf(" +0x%x\n", 
 		  (unsigned int)s->pc - (unsigned int)s->saddr);
   }
 }
@@ -733,10 +782,17 @@ static stacktrace *
 printAddr(void *pc)
 {
 #if defined(SOLARIS) || defined(LINUX)
+# ifdef DEMANGLE_GNU_CXX
+  char   *dem = NULL; /* GNU CXX */
+# else
+#  define DMGL_BUFFER_SIZE 1024
+  char    dem[DMGL_BUFFER_SIZE];  /* SUN CXX */
+# endif
+
   Dl_info info;
   
   if(dladdr(pc, & info) == 0) {
-    (void) printf("\t\t<unknown>: 0x%x\n", (int)pc);
+    (void) printf("\t\t<unknown>:<unknown> 0x%x\n", (int)pc);
     return;
   }
   
@@ -744,12 +800,28 @@ printAddr(void *pc)
    * filter out any mention of rtld.  We're hiding the cost
    * of the rtld_auditing here.
    */
-  if (strstr(info.dli_fname, "ld.so.1"))
-    return;
-  
-  (void) printf("\t\t%s:%s+0x%x\n", 
-		info.dli_fname,
-		info.dli_sname,
+  if (strstr(info.dli_fname, "ld.so.1")) return;
+
+  /*dem = demangle_it(info.dli_sname);*/
+#if   defined(DEMANGLE_GNU_CXX)
+  dem = cplus_demangle(info.dli_sname, DMGL_DEFAULT);
+#elif defined(DEMANGLE_SUN_CXX)
+  if(cplus_demangle(info.dli_sname, dem, DMGL_BUFFER_SIZE) != 0)
+    strcpy(dem, info.dli_sname);
+#endif
+
+  (void) printf("\t\t<%s>:", 
+		*(info.dli_fname) ? info.dli_fname : "unknown");
+  if(dem) {
+    (void) printf("<%s>", dem);
+#if defined(DEMANGLE_GNU_CXX)
+    free(dem);
+#endif
+  } else {
+    (void) printf("<%s>", info.dli_sname);
+  }
+
+  (void) printf("+0x%x\n", 
 		(unsigned int)pc - (unsigned int)info.dli_saddr);
 #endif
   return NULL;
@@ -782,3 +854,5 @@ staticFree(void *ptr)
     /* we don't really "free" this stuff: it's static */
   }
 }
+
+
