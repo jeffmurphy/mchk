@@ -73,30 +73,36 @@ static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 # define TRUE !FALSE
 #endif
 
-#define PRINTSTACK walkStack(printAddr, FALSE)
-#define STORESTACK walkStack(storeAddr, TRUE)
-#define FULLTRACE(X) \
+#define PRINTSTACK                      \
 {                                       \
-  printf("allocated from:\n");          \
+  printf("\terror occurred at:\n");     \
+  walkStack(printAddr, FALSE);          \
+}
+#define STORESTACK walkStack(storeAddr, TRUE)
+#define FULLTRACE(X)                    \
+{                                       \
+  printf("\terror occurred at:\n");     \
+  walkStack(printAddr, FALSE);          \
+  printf("\tallocated from:\n");        \
   printStacktrace(X->allocatedFrom);    \
   if(X->freedFrom) {                    \
-    printf("freed from:\n");            \
+    printf("\tfreed from:\n");          \
     printStacktrace(X->freedFrom);      \
   }                                     \
 }
 
-#define BADFREE    printf("BADFREE   ptr=%X\n", ptr); PRINTSTACK
-#define REFREE     printf("REFREE    ptr=%X\n", ptr); PRINTSTACK
-#define READFREE   printf("READFREE  ptr=%X\n", ptr); PRINTSTACK
-#define WRITEFREE(X) printf("WRITEFREE ptr=%X\n", ptr); FULLTRACE(X)
-#define BADADDR    printf("BADADDR   ptr=%X\n", ptr); PRINTSTACK
-#define BADWRITE   printf("BADWRITE  ptr=%X\n", ptr); PRINTSTACK
-#define BADREAD    printf("BADREAD   ptr=%X\n", ptr); PRINTSTACK
-#define UNDERWRITE printf("UNDERWRITE ptr=%X\n", ptr);PRINTSTACK
-#define OVERWRITE  printf("OVERWRITE ptr=%X\n", ptr); PRINTSTACK
-#define UNDERREAD  printf("UNDERREAD ptr=%X\n", ptr); PRINTSTACK
-#define OVERREAD   printf("OVERREAD  ptr=%X\n", ptr); PRINTSTACK
-#define NULLADDR   printf("NULLADDR  ptr=%X\n", ptr); PRINTSTACK
+#define BADFREE       printf("BADFREE   ptr=%X\n", ptr); PRINTSTACK
+#define REFREE(X)     printf("REFREE    ptr=%X\n", ptr); FULLTRACE(X)
+#define READFREE(X)   printf("READFREE  ptr=%X\n", ptr); FULLTRACE(X)
+#define WRITEFREE(X)  printf("WRITEFREE ptr=%X\n", ptr); FULLTRACE(X)
+#define BADADDR       printf("BADADDR   ptr=%X\n", ptr); PRINTSTACK
+#define BADWRITE      printf("BADWRITE  ptr=%X\n", ptr); PRINTSTACK
+#define BADREAD(X)    printf("BADREAD   ptr=%X\n", ptr); FULLTRACE(X)
+#define UNDERWRITE(X) printf("UNDERWRITE ptr=%X\n", ptr); FULLTRACE(X)
+#define OVERWRITE(X)  printf("OVERWRITE ptr=%X\n", ptr); FULLTRACE(X)
+#define UNDERREAD(X)  printf("UNDERREAD ptr=%X\n", ptr); FULLTRACE(X)
+#define OVERREAD(X)   printf("OVERREAD  ptr=%X\n", ptr); FULLTRACE(X)
+#define NULLADDR      printf("NULLADDR  ptr=%X\n", ptr); PRINTSTACK
 
 void
 wchk(void *sp, void *ptr, size_t len)
@@ -155,13 +161,13 @@ wchk(void *sp, void *ptr, size_t len)
    */
 
   if(ptr < (n->ptr + REDZONESIZE)) {
-    UNDERWRITE;
+    UNDERWRITE(n);
   }
   else if(ptr >= (n->ptr + n->size - REDZONESIZE)) {
-    OVERWRITE;
+    OVERWRITE(n);
   }
   else if((ptr + len) > (n->ptr + n->size - REDZONESIZE)) {
-    OVERWRITE;
+    OVERWRITE(n);
   }
   
   UNLOCK;
@@ -200,7 +206,7 @@ rchk(void *sp, void *ptr, size_t len)
      *     warning: reading free'd memory
      */
     if(n) {
-      READFREE;
+      READFREE(n);
     } else {
       /* BADADDR; */ 
       /* we'll assume that this is caused by looking up something on the
@@ -215,13 +221,13 @@ rchk(void *sp, void *ptr, size_t len)
    */
 
   if(ptr < (n->ptr + REDZONESIZE)) {
-    UNDERREAD;
+    UNDERREAD(n);
   }
   else if(ptr >= (n->ptr + n->size - REDZONESIZE)) {
-    OVERREAD;
+    OVERREAD(n);
   }
   else if((ptr + len) > (n->ptr + n->size - REDZONESIZE)) {
-    OVERREAD;
+    OVERREAD(n);
   }
 
   /*if (addr was not previously written to) then
@@ -229,7 +235,7 @@ rchk(void *sp, void *ptr, size_t len)
    */
 
   if(n->state == STATE_UNDEF) {
-    BADREAD;
+    BADREAD(n);
   }
 
   UNLOCK;
@@ -468,7 +474,7 @@ free(void *ptr)
   } else {
     for(p = freeList ; p && (p->ptr != ptr) ; p = p->next);
     if(p) {
-      REFREE;
+      REFREE(p);
     } else {
       BADFREE;
     }
@@ -595,12 +601,12 @@ static void
 printStacktrace(stacktrace *s) 
 {
   if(!s) {
-    (void) printf("\tstack trace not available.\n");
+    (void) printf("\t\tstack trace not available.\n");
     return;
   }
 
   for( ; s ; s = s->next) {
-    (void) printf("\t%s:%s+0x%x\n", 
+    (void) printf("\t\t%s:%s+0x%x\n", 
 		  s->fname ? s->fname : "unknown",
 		  s->sname ? s->sname : "unknown",
 		  (unsigned int)s->pc - (unsigned int)s->saddr);
@@ -614,7 +620,7 @@ printAddr(void *pc)
   Dl_info info;
   
   if(dladdr(pc, & info) == 0) {
-    (void) printf("\t<unknown>: 0x%x\n", (int)pc);
+    (void) printf("\t\t<unknown>: 0x%x\n", (int)pc);
     return;
   }
   
@@ -625,7 +631,7 @@ printAddr(void *pc)
   if (strstr(info.dli_fname, "ld.so.1"))
     return;
   
-  (void) printf("\t%s:%s+0x%x\n", 
+  (void) printf("\t\t%s:%s+0x%x\n", 
 		info.dli_fname,
 		info.dli_sname,
 		(unsigned int)pc - (unsigned int)info.dli_saddr);

@@ -3,8 +3,8 @@ CCC=$(CXX)
 CC=gcc
 AS=as
 #AS=/usr/bin/as
-#CFLAGS= -g -I. -DSOLARIS -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
-CFLAGS= -g -I.  -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
+CFLAGS= -g -I. -DSOLARIS -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
+#CFLAGS= -g -I.  -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
 LIBS  = -L. -lmchk -ldl
 
 MCHKSRC = chk.c
@@ -20,7 +20,7 @@ t2:	t2.o libmchk.a
 	$(CC) -o t2 t2.o $(LIBS)
 
 t3:	t3.o libmchk.a
-	$(CC) -o t3 t3.o $(LIBS)
+	$(CXX) -o t3 t3.o $(LIBS)
 
 libmchk.a:	$(MCHKOBJ)
 	@echo "Building libmchk.a .."
