@@ -6,6 +6,7 @@
 
 
 use strict;
+use POSIX;
 
 my($debug) = 1;
 
@@ -65,7 +66,8 @@ open(O, "> $tfile") || die "open($tfile): $!";
 my ($mainflag) = 0;
 my ($gccs_stack, $gimmemorestack,
     $stackaddr1, $stackaddr2,
-    $stackaddr3, $stackaddr4) = 0;
+    $stackaddr3, $stackaddr4,
+    $midstack, $gcc_alloted_data) = 0;
 
 while(<I>) {
   chomp;
@@ -103,14 +105,32 @@ while(<I>) {
   # ex: read a mem
   #        ldb [%fp-17],%o0
   
-  if (/\s*save %sp,([-+]?\d+),%sp\s*$/) {
+#
+# create a hole in the middle of the stack for our registers.
+# we only need 32 bytes, but adding 128 bytes gives us a 
+# 'safety zone' of 48 bytes on each side of the hole.
+# it'd be nice if we could have rchk/wchk detect something
+# clobbering stuff inside the hole. 
+#
+
+
+  if (/\s*save %sp,(-\d+),%sp\s*$/) {
     $gccs_stack = $1;
-    $gimmemorestack = $gccs_stack - (4*8);
-    $stackaddr1 = abs($gccs_stack+64);
-    $stackaddr2 = abs($gccs_stack+56);
-    $stackaddr3 = abs($gccs_stack+48);
-    $stackaddr4 = abs($gccs_stack+40);
+    $gimmemorestack = $gccs_stack - 128;
+    $gcc_alloted_data = abs($gimmemorestack) - 64;
+    $midstack = ($gcc_alloted_data/2)-16;
+    print STDERR "mid:$midstack\n";
+    if ($midstack%8 != 0) {
+      $midstack = ceil($midstack/8);
+      print STDERR "align:$midstack\n";
+      $midstack = $midstack*8;
+    }
+    $stackaddr1 = abs($midstack);
+    $stackaddr2 = abs($midstack+8);
+    $stackaddr3 = abs($midstack+16);
+    $stackaddr4 = abs($midstack+24);
     print O "\tsave %sp,$gimmemorestack,%sp\n";
+    print STDERR "modified stack: old:$gccs_stack new:$gimmemorestack mid:$midstack\n";
   }
     
   elsif((/st(.*)\ (.+),(.+)/) || (/ld(.*)\ (.+),(.+)/)) {
