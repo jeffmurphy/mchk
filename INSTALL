@@ -1,15 +1,16 @@
 To install this package.
 
 Edit 		Change
--------------------------------------------
+-------------------------------------------------------
 as		path to perl (first line)
 insert_*.pl	path to perl (first line)
 Makefile	path to as (the real as)
-
+Makefile        add -DSOLARIS to CFLAGS for stack trace
 
 On Solaris:
 
 % setenv COMPILER_PATH `pwd`
+% setenv MCHK yes
 % make
 % ./t1
 % ./t2
@@ -17,6 +18,7 @@ On Solaris:
 On Linux:
 
 % set path = (`pwd` $path)
+% setenv MCHK yes
 % make
 % ./t1
 % ./t2
