@@ -1,15 +1,16 @@
 #include <stdio.h>
 #include <sys/types.h>
-#ifndef __GNUC__
-# include <sys/varargs.h>
-#endif
+#include <stdarg.h>
+
+#define MAXARGS 31
 
 void
 printthis(char *fmt, ...)
 {
   va_list  arglist;
-  va_start(arglist, fmt);
-  vfprintf(stdout, fmt, arglist);
+  va_start(arglist, MAXARGS);
+
+  vprintf(fmt, arglist);
 }
 
 int
