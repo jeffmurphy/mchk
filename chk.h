@@ -82,9 +82,10 @@ static stacktrace *walkStack(stacktrace *(*fn)(void *pc), int storeit);
 static stacktrace *storeAddr(void *pc);
 static stacktrace *printAddr(void *pc);
 static void        freeStacktrace(stacktrace *p);
+static void        freeStacktraceNode(stacktrace *p);
 static void        printStacktrace(stacktrace *s);
 
-static void    *staticMalloc(size_t size);
+static void       *staticMalloc(size_t size);
 
 static char    staticMem[STATICMEMSIZE];
 static size_t  staticOffset = 0;

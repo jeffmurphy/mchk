@@ -48,10 +48,13 @@
 # include <pthread.h>
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_t       heldBy = 0;
+# define LDBG(X) 
 # define LOCK                                              \
 {                                                          \
+  LDBG(("LOCK[%u]: pending\n", pthread_self())); \
   if(heldBy != pthread_self()) {                           \
      int __ptmlret = pthread_mutex_lock(&lock);            \
+     LDBG(("LOCK[%u]: aquired\n", pthread_self())); \
      if(__ptmlret) {                                       \
         printf("chk.o: pthread_mutex_lock returned %d\n",  \
                __ptmlret);                                 \
@@ -62,17 +65,20 @@ static pthread_t       heldBy = 0;
 }
 # define UNLOCK                                             \
 {                                                           \
+  LDBG(("UNLOCK[%u]: release\n", pthread_self())); \
   if(heldBy == pthread_self()) {                            \
-     int __ptmulret = pthread_mutex_unlock(&lock);          \
+     int __ptmulret;                                        \
+     heldBy = 0;                                            \
+     __ptmulret = pthread_mutex_unlock(&lock);              \
+     LDBG(("UNLOCK[%u]: released\n", pthread_self())); \
      if(__ptmulret) {                                       \
         printf("chk.o: pthread_mutex_unlock returned %d\n", \
                __ptmulret);                                 \
         exit(-1);                                           \
      }                                                      \
-     heldBy = 0;                                            \
   } else {                                                  \
-     printf("chk.o: mutex_unlock: thread %u doesn't hold the lock.\n", \
-            pthread_self());                                \
+     printf("chk.o: mutex_unlock: thread %u doesn't hold the lock. (held by %u)\n", \
+            pthread_self(), heldBy);                        \
      return;                                                \
   }                                                         \
 }
@@ -354,7 +360,6 @@ findMemnode(memnode *list, void *ptr)
   int      done;
 
   if(!ptr) {
-    D(("findMemnode: ptr == NULL\n"));
     return NULL;
   }
 
@@ -365,26 +370,18 @@ findMemnode(memnode *list, void *ptr)
 
   while(!done) {
     if(!p) {
-      D(("findMemnode: at end of list\n"));
       done = 1;
     } else {
-      D(("findMemnode: examining memnode %X <= %X <= %X\n",
-	 p->ptr, ptr, p->ptr + p->size));
       if((p->ptr <= ptr) && (ptr <= (p->ptr + p->size))) {
-	D(("findMemnode: true.\n"));
 	done = 1;
-      } else {
-	D(("findMemnode: false.\n"));
       }
     }
     if(!done) p = p->next;
   }
 
   if(!p) {  /* didnt find it */
-    D(("findMemnode: didn't find anything.\n"));
     return NULL;
   }
-  D(("findMemnode: found a match.\n"));
   return p;
 }
 
@@ -404,9 +401,7 @@ freeStacktrace(stacktrace *p)
 {
   while(p) {
     stacktrace *n = p->next;
-    if(p->fname) realfree(p->fname);
-    if(p->sname) realfree(p->sname);
-    realfree(p);
+    freeStacktraceNode(p);
     p = n;
   }
 }
@@ -535,6 +530,25 @@ loadLibC(char *libc)
   return 0;
 }
 
+
+static void
+trylookup(void *pc)
+{
+  Dl_info     info;
+
+  if(dladdr(pc, & info) == 0) {
+    (void) printf("\t{unknown}:{unknown} [0x%X]\n", (int)pc);
+    return;
+  }
+  
+  (void) printf("\t<%s>:<%s>+0x%x [0x%X]\n", 
+		info.dli_fname,
+		info.dli_sname,
+		(unsigned int)pc - (unsigned int)info.dli_saddr,
+		(unsigned int)pc);
+
+}
+
 /* the following code was adapted from a SUN example source file
  *
  * Copyright (c) 1996 by Sun Microsystems, Inc.
@@ -546,13 +560,12 @@ loadLibC(char *libc)
 static stacktrace *
 walkStack(stacktrace *(*fn)(void *pc), int storeit)
 {
-#if defined(SOLARIS) && defined(DO_STACK_TRACE)
+#if defined(DO_STACK_TRACE)
+# if defined(SOLARIS)
   struct frame *sp = NULL;
   jmp_buf       env;
   int           i = 0;
   stacktrace   *st = NULL, *sto = NULL;
-
-  /*LOCK;*/
 
   FLUSHWIN();
   (void) setjmp(env);
@@ -581,10 +594,66 @@ walkStack(stacktrace *(*fn)(void *pc), int storeit)
     sp = (struct frame *)sp->fr_savfp;
   }
 
-  /*UNLOCK;*/
+  return sto;
+# elif defined(LINUX)
+  jmp_buf       env;
+  int           i = 0, done = FALSE;
+  stacktrace   *st = NULL, *sto = NULL;
+#define T unsigned int
+  T         *next, *fp;
+
+  setjmp(env);
+
+  /* the linux jmpbuf.__jmpbuf looks like this (at least in kernel 2.0.x)
+   * [0] : ptr to [2]
+   * [1] : ptr to function
+   * [2] : ptr to [4]
+   * [3] : ptr to function
+   * [4] : ...
+   *
+   * so we determine when we hit the end of the callback list by
+   * checking if  "ptr to [x] < ptr to [2]".
+   *
+   * in addition, since the first thing on the stack is likely to 
+   * be "rchk" or "wchk", we start at position 2 to get the routine
+   * that called us.
+   */
+
+  next = (T *)&(env[1].__jmpbuf[0]);
+  fp   = (T *)*(next + 1);
+  while(!done) {
+    stacktrace *s;
+    next = (T *)*next;
+    fp   = (T *)*(next + 1);
+    if(*next) {
+      s = (*fn)((void *)(fp));
+      D((">>>> [%8.8x -> %8.8x] [%8.8x] ", next, *next, fp));
+      if(storeit == TRUE) {
+	if(s) {
+	  if(!sto) {
+	    sto = s;
+	    st  = s;
+	  } else {
+	    st->next = s;
+	    st       = s;
+	  }
+	} else {
+	  printf("[chk.o::walkStack] error: storeit==true but s==null\n");
+	}
+      } else {
+	if(s) freeStacktraceNode(s);
+      }
+      
+    } else
+      done = TRUE;
+  }
 
   return sto;
-#endif
+# endif /* OS SPECIFIC TESTS */
+
+
+#endif /* DO_STACK_TRACE */
+
 
   return NULL;
 }
@@ -592,7 +661,7 @@ walkStack(stacktrace *(*fn)(void *pc), int storeit)
 static stacktrace *
 storeAddr(void *pc)
 {
-#if defined(SOLARIS) && defined(DO_STACK_TRACE)
+#if (defined(SOLARIS) || defined(LINUX)) && defined(DO_STACK_TRACE)
   Dl_info     info;
   int         l;
   stacktrace *s = (stacktrace *) realmalloc(sizeof(stacktrace));
@@ -605,20 +674,45 @@ storeAddr(void *pc)
   s->pc = pc;
 
   if(dladdr(pc, & info) == 0) {
-    return;
+    s->fname = realmalloc(8);
+    if(!s->fname) {
+      realfree(s);
+      return NULL;
+    }
+    s->sname = realmalloc(8);
+    if(!s->sname) {
+      realfree(s);
+      return NULL;
+    }
+    strcpy(s->fname, "unknown");
+    strcpy(s->sname, "unknown");
+    return s;
   }
   
-  if (strstr(info.dli_fname, "ld.so.1"))
-    return;
+  if (strstr(info.dli_fname, "ld.so.1")) {
+    realfree(s);
+    return NULL;
+  }
 
   s->saddr = info.dli_saddr;
 
   l = strlen(info.dli_fname);
   s->fname = realmalloc(l + 1); 
+  if(!s->fname) {
+    realfree(s);
+    return NULL;
+  }
+
   (void) strncpy(s->fname, info.dli_fname, l);
 
   l = strlen(info.dli_sname);
   s->sname = realmalloc(l + 1); 
+  if(!s->sname) {
+    realfree(s->fname);
+    realfree(s);
+    return NULL;
+  }
+
   (void) strncpy(s->sname, info.dli_sname, l);
 
   return s;
@@ -634,19 +728,29 @@ printStacktrace(stacktrace *s)
     (void) printf("\t\tstack trace not available.\n");
     return;
   }
-
+  
   for( ; s ; s = s->next) {
-    (void) printf("\t\t%s:%s+0x%x\n", 
-		  s->fname ? s->fname : "unknown",
-		  s->sname ? s->sname : "unknown",
+    (void) printf("\t\t<%s>:<%s> +0x%x\n", 
+		  *(s->fname) ? s->fname : "unknown",
+		  *(s->sname) ? s->sname : "unknown",
 		  (unsigned int)s->pc - (unsigned int)s->saddr);
+  }
+}
+
+static void
+freeStacktraceNode(stacktrace *s) 
+{
+  if(s) {
+    if(s->fname) realfree(s->fname);
+    if(s->sname) realfree(s->sname);
+    realfree(s);
   }
 }
 
 static stacktrace *
 printAddr(void *pc)
 {
-#ifdef SOLARIS
+#if defined(SOLARIS) || defined(LINUX)
   Dl_info info;
   
   if(dladdr(pc, & info) == 0) {

@@ -31,6 +31,8 @@ main()
   b2= b;
   printf ("\tm (%x) = malloc(10)\n", &m);
 
+  printf ("\n=== calling malloc() ===\n");
+
   m = (char *) malloc(10);
 
   printf ("\tm (%x) = %X\n", &m, m);

@@ -3,8 +3,8 @@ CCC=$(CXX)
 CC=gcc
 #AS=as
 AS=/usr/bin/as
-SOLARIS = #-DSOLARIS
-CFLAGS= -g -I. -DDO_STACK_TRACE $(SOLARIS) -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
+OS = -DLINUX -rdynamic #-DSOLARIS
+CFLAGS= -g -I. -DDO_STACK_TRACE $(OS) -DTHREAD_SAFE -D_REENTRANT # -DDEBUG
 LIBS  = -L. -lmchk -lpthread -ldl
 
 MCHKSRC = chk.c
